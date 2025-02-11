@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "postinstall": "npm install --omit=dev"
+    "start": "node src/index.js"
   },
   "repository": {
     "type": "git",
