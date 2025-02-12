@@ -526,6 +526,5 @@ async function lookingForMatch()
     await createResults(finish)
 }
 
-cron.schedule("* * * * *", () => lookingForMatch(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
 
 client.login(process.env.DISCORD_TOKEN);
