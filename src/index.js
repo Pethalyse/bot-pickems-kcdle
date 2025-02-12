@@ -257,11 +257,15 @@ client.on('interactionCreate', async interaction => {
 
 // Annonce des résultats après les matchs
 async function announceResults(annee, league, phase, season) {
-    const channel = await client.channels.fetch(CHANNEL_ID);
-    if (!channel) return console.error("❌ Salon introuvable.");
-
     const matches = [...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/${phase}/${season}`)).data)];
     if (matches.length === 0) return
+    await createResults(matches)
+}
+
+
+async function createResults(matches){
+    const channel = await client.channels.fetch(CHANNEL_ID);
+    if (!channel) return console.error("❌ Salon introuvable.");
 
     for (const match of matches) {
         if (match.gagnant) {
@@ -310,29 +314,35 @@ async function getMatchesForWeek(annee, league, phase, season) {
     }
 }
 
+async function getWeekMatches(league){
+    const annee = new Date().getFullYear();
+    const phase = "0";
+
+    const matches = [];
+
+    matches.push(...await getMatchesForWeek(annee, league, phase, "winter"));
+    matches.push(...await getMatchesForWeek(annee, league, phase, "summer"));
+    matches.push(...await getMatchesForWeek(annee, league, phase, "spring"));
+    matches.push(...await getMatchesForWeek(annee, league, phase, "national"));
+
+    return matches
+}
+
 // Gestion des commandes Slash
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
 
     if (interaction.commandName === 'matchs') {
-        const annee = new Date().getFullYear();
         const league = interaction.options.getString('league');
-        const phase = "0";
 
         await interaction.deferReply(); // Attente de la réponse
-
-        const matches = [];
-
-        matches.push(...await getMatchesForWeek(annee, league, phase, "winter"));
-        matches.push(...await getMatchesForWeek(annee, league, phase, "summer"));
-        matches.push(...await getMatchesForWeek(annee, league, phase, "spring"));
-        matches.push(...await getMatchesForWeek(annee, league, phase, "national"));
+        const matches = await getWeekMatches(league);
 
         if (matches.length === 0) {
             return interaction.editReply("❌ Aucun match prévu cette semaine pour cette ligue.");
         }
         await createMatchVoteMessage(matches);
-        await interaction.editReply(`📢 Les matchs de la semaine pour la phase **${league}** ont été envoyés !`);
+        await interaction.editReply(`📢 Les matchs de la semaine pour la ligue **${league}** ont été envoyés !`);
     }
 
     if (interaction.commandName === 'demain') {
@@ -350,6 +360,14 @@ client.on('interactionCreate', async interaction => {
         await interaction.deferReply(); // Indique que le bot traite la commande
         await announceResults(annee, league, phase, season);
         await interaction.editReply("📢 Les résultats ont été envoyés !");
+    }
+
+    if(interaction.commandName === 'matchs-results-week'){
+        const league = interaction.options.getString('league');
+
+        await interaction.deferReply(); // Attente de la réponse
+        await createResults(await getWeekMatches(league))
+        await interaction.editReply(`📢 Les résultats des matchs de la semaine pour la ligue **${league}** ont été envoyés !`);
     }
 });
 
@@ -433,6 +451,19 @@ client.on('ready', async () => {
             )
     );
     console.log("✅ Commande `/matchs-results` enregistrée !");
+
+    await guild.commands.create(
+        new SlashCommandBuilder()
+            .setName('matchs-results-week')
+            .setDescription("📅 Affiche les résultats des matchs de la semaine d'une ligue")
+            .addStringOption(option =>
+                option.setName('league')
+                    .setDescription("Choisis la league'")
+                    .setRequired(true)
+                    .addChoices(leagues)
+            )
+    );
+    console.log("✅ Commande `/matchs-results-week` enregistrée !");
 
 });
 
