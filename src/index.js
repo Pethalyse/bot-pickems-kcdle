@@ -511,7 +511,7 @@ async function getMatchesWithoutWinner() {
 
 async function lookingForMatch()
 {
-    const matchs = getAllMatchs();
+    const matchs = getMatchesWithoutWinner();
     (await matchs).forEach(match => {
         if(match.gagnant === null || match.perdant === null)
             matchWithoutWinner.add(match.id);
@@ -523,8 +523,11 @@ async function lookingForMatch()
             finish.push(match)
             matchWithoutWinner.delete(match.id)
     });
+    console.log(matchWithoutWinner)
+    console.log(finish)
     await createResults(finish)
 }
 
+cron.schedule("* * * * *", () => lookingForMatch(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
 
 client.login(process.env.DISCORD_TOKEN);
