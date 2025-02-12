@@ -16,12 +16,32 @@ const client = new Client({
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const API_URL = process.env.API_URL;
 
+async function getMatchsKeys()
+{
+    try {
+        const keysResponse = await axios.get(`${API_URL}/get/matchs_keys`);
+        return keysResponse.data;
+    } catch (error) {
+        console.error("❌ Erreur lors de la récupération des clefs des matchs :", error);
+        return [];
+    }
+}
+
 // Fonction pour récupérer les matchs à venir pour LFL et LEC
 async function getUpcomingMatches() {
     try {
-        const lecResponse = await axios.get(`${API_URL}/get/matchs/lec-winter-playoff-2025`);
-        const lflResponse = await axios.get(`${API_URL}/get/matchs/lfl-winter-playoff-2025`);
-        return [...lecResponse.data, ...lflResponse.data];
+        const responses = [];
+        const keys = await getMatchsKeys();
+        for (const annee of Object.keys(keys)) {
+            for (const league of Object.keys(keys[annee])) {
+                if(league === "worlds") continue
+                responses.push(...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/0/winter`)).data))
+                responses.push(...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/0/spring`)).data))
+                responses.push(...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/0/summer`)).data))
+                responses.push(...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/0/national`)).data))
+            }
+        }
+        return responses
     } catch (error) {
         console.error("❌ Erreur lors de la récupération des matchs :", error);
         return [];
@@ -118,8 +138,18 @@ async function createMatchVoteMessage(matches, everyone = false){
     if (!channel) return console.error("❌ Salon introuvable.");
 
     for (const match of matches) {
+
+        const match_coming = match.match_date > new Date().toISOString().split('T')[0];
+
+        let title;
+        if(!match_coming)
+            title = `📢 Match passé : **${match.equipe1.name}** 🆚 **${match.equipe2.name}**`;
+        else
+            title = `📢 Match à venir : **${match.equipe1.name}** 🆚 **${match.equipe2.name}**`
+
+
         const embed = new EmbedBuilder()
-            .setTitle(`📢 Match à venir : **${match.equipe1.name}** 🆚 **${match.equipe2.name}**`)
+            .setTitle(title)
             .setDescription(`🕐 **Date** : ${match.match_date}\n📝 Faites vos pickems maintenant !`)
             .setColor("Blue")
             .setThumbnail(match.equipe1.image) // Logo équipe 1 en petit
@@ -131,23 +161,30 @@ async function createMatchVoteMessage(matches, everyone = false){
                 { name: "🏆 **Équipe 2**", value: `**${match.equipe2.name}**`, inline: true }
             );
 
-        const row = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setLabel("Voter pour " + match.equipe1.name)
-                    .setStyle(ButtonStyle.Primary)
-                    .setCustomId(`vote_${match.id}_${match.equipe1.name}`),
-                new ButtonBuilder()
-                    .setLabel("Voter pour " + match.equipe2.name)
-                    .setStyle(ButtonStyle.Primary)
-                    .setCustomId(`vote_${match.id}_${match.equipe2.name}`)
-            );
-
         let content = "";
         if(everyone)
             content = "📢 Votez pour le match de demain ! || @everyone ||";
 
-        await channel.send({content: content, embeds: [embed], components: [row] });
+        if(match_coming)
+        {
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setLabel("Voter pour " + match.equipe1.name)
+                        .setStyle(ButtonStyle.Primary)
+                        .setCustomId(`vote_${match.id}_${match.equipe1.name}_${match.match_date}`),
+                    new ButtonBuilder()
+                        .setLabel("Voter pour " + match.equipe2.name)
+                        .setStyle(ButtonStyle.Primary)
+                        .setCustomId(`vote_${match.id}_${match.equipe2.name}_${match.match_date}`)
+                );
+
+            await channel.send({content: content, embeds: [embed], components: [row] });
+
+        }
+        else
+            await channel.send({content: content, embeds: [embed] });
+
     }
 }
 
@@ -177,8 +214,17 @@ client.on('interactionCreate', async interaction => {
     const userId = interaction.user.id; // ID Discord de l'utilisateur
     const matchId = interaction.customId.split('_')[1];
     const team = interaction.customId.split('_')[2];
+    const date = interaction.customId.split('_')[3];
 
     try {
+
+        if(date <= new Date().toISOString().split('T')[0]){
+            return interaction.reply({
+                content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
+                ephemeral: true
+            });
+        }
+
         // Vérifier si le compte est lié
         const response = await axios.get(`${API_URL}/get/user/discord/${userId}`);
         const userData = response.data;
@@ -210,15 +256,11 @@ client.on('interactionCreate', async interaction => {
 });
 
 // Annonce des résultats après les matchs
-async function announceResults(phase = "") {
+async function announceResults(annee, league, phase, season) {
     const channel = await client.channels.fetch(CHANNEL_ID);
     if (!channel) return console.error("❌ Salon introuvable.");
 
-    let matches = [];
-    if(phase === "")
-        matches = await getUpcomingMatches();
-    else
-        matches = [...((await axios.get(`${API_URL}/get/matchs/${phase}`)).data)];
+    const matches = [...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/${phase}/${season}`)).data)];
     if (matches.length === 0) return
 
     for (const match of matches) {
@@ -244,13 +286,14 @@ async function announceResults(phase = "") {
 cron.schedule("10 8 * * *", () => sendMatchReminder(true), { timezone: "Europe/Paris" }); // Rappel à 8h
 
 // Fonction pour récupérer les matchs de la semaine pour une ligue spécifique
-async function getMatchesForWeek(league) {
+async function getMatchesForWeek(annee, league, phase, season) {
     try {
-        const response = await axios.get(`${API_URL}/get/matchs/${league}`);
+        const response = await axios.get(`${API_URL}/get/matchs/${annee}/${league}/${phase}/${season}`);
         const allMatches = response.data;
 
-        // Obtenir la date actuelle et la date de fin de semaine
+        // Obtenir la date de début de semaine et la date de fin de semaine
         const today = new Date();
+        today.setDate((today.getDate() - (today.getDay()-1)))
         const endOfWeek = new Date();
         endOfWeek.setDate(today.getDate() + (7 - today.getDay())); // Dimanche de la semaine en cours
 
@@ -272,11 +315,19 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
 
     if (interaction.commandName === 'matchs') {
-        const league = interaction.options.getString('phase');
+        const annee = new Date().getFullYear();
+        const league = interaction.options.getString('league');
+        const phase = "0";
 
         await interaction.deferReply(); // Attente de la réponse
 
-        const matches = await getMatchesForWeek(league);
+        const matches = [];
+
+        matches.push(...await getMatchesForWeek(annee, league, phase, "winter"));
+        matches.push(...await getMatchesForWeek(annee, league, phase, "summer"));
+        matches.push(...await getMatchesForWeek(annee, league, phase, "spring"));
+        matches.push(...await getMatchesForWeek(annee, league, phase, "national"));
+
         if (matches.length === 0) {
             return interaction.editReply("❌ Aucun match prévu cette semaine pour cette ligue.");
         }
@@ -291,8 +342,13 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.commandName === 'matchs-results') {
+        const annee = interaction.options.getString('annee');
+        const league = interaction.options.getString('league');
+        const phase = interaction.options.getString('phase');
+        const season = interaction.options.getString('season');
+
         await interaction.deferReply(); // Indique que le bot traite la commande
-        await announceResults(interaction.options.getString('phase'));
+        await announceResults(annee, league, phase, season);
         await interaction.editReply("📢 Les résultats ont été envoyés !");
     }
 });
@@ -304,19 +360,26 @@ client.on('ready', async () => {
     const guild = client.guilds.cache.first(); // Prendre le premier serveur où le bot est présent
     if (!guild) return console.error("❌ Serveur introuvable.");
 
+    const keys = await getMatchsKeys();
+    const annees = [];
+    const leagues = [];
+    for (const annee of Object.keys(keys)) {
+        annees.push({name: annee, value: annee})
+        for (const league of Object.keys(keys[annee])) {
+            leagues.push({name: league, value: league})
+        }
+    }
+
     // Enregistrement de la commande
     await guild.commands.create(
         new SlashCommandBuilder()
             .setName('matchs')
             .setDescription("📅 Affiche les matchs de la semaine d'une phase")
             .addStringOption(option =>
-                option.setName('phase')
-                    .setDescription("Choisis la ligue (LEC ou LFL)")
+                option.setName('league')
+                    .setDescription("Choisis la league'")
                     .setRequired(true)
-                    .addChoices(
-                        { name: "LEC Winter Playoff", value: "lec-winter-playoff-2025" },
-                        { name: "LFL Winter Playoff", value: "lfl-winter-playoff-2025" }
-                    )
+                    .addChoices(leagues)
             )
     );
     console.log("✅ Commande `/matchs` enregistrée !");
@@ -335,17 +398,41 @@ client.on('ready', async () => {
             .setName('matchs-results')
             .setDescription("📅 Affiche les résulats des match d'une phase")
             .addStringOption(option =>
-                option.setName('phase')
-                    .setDescription("Choisis la phase de match")
+                option.setName('annee')
+                    .setDescription("Choisis l'année'")
+                    .setRequired(true)
+                    .addChoices(annees)
+            )
+            .addStringOption(option =>
+                option.setName('league')
+                    .setDescription("Choisis la league'")
+                    .setRequired(true)
+                    .addChoices(leagues)
+            )
+            .addStringOption(option =>
+                option.setName('season')
+                    .setDescription("Choisis la saison'")
                     .setRequired(true)
                     .addChoices(
-                        { name: "LEC Winter Playoff", value: "lec-winter-playoff-2025" },
-                        { name: "LFL Winter Playoff", value: "lfl-winter-playoff-2025" }
+                        {name: 'winter', value: 'winter'},
+                        {name: 'spring', value: 'spring'},
+                        {name: 'summer', value: 'summer'},
+                        {name: 'national', value: 'national'},
+                    )
+            )
+            .addStringOption(option =>
+                option.setName('phase')
+                    .setDescription("Choisis la phase du tournois'")
+                    .setRequired(true)
+                    .addChoices(
+                        {name: 'phase 1', value: '1'},
+                        {name: 'phase 2', value: '2'},
+                        {name: 'phase 3', value: '3'},
+                        {name: 'all', value: '0'},
                     )
             )
     );
     console.log("✅ Commande `/matchs-results` enregistrée !");
-
 
 });
 
