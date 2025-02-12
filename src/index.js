@@ -138,7 +138,6 @@ async function createMatchVoteMessage(matches, everyone = false){
     if (!channel) return console.error("❌ Salon introuvable.");
 
     for (const match of matches) {
-
         const match_coming = match.match_date > new Date().toISOString().split('T')[0];
 
         let title;
@@ -520,14 +519,49 @@ async function lookingForMatch()
     const finish = [];
     (await matchs).forEach(match => {
         if(match.gagnant !== null && match.perdant !== null)
+        {
             finish.push(match)
             matchWithoutWinner.delete(match.id)
+        }
     });
-    console.log(matchWithoutWinner)
-    console.log(finish)
     await createResults(finish)
 }
 
+const matchsTBD = new Set(); // Stocke les matchs déjà annoncés
+
+async function getMatchesTBD() {
+    try {
+        const allMatches = await getAllMatchs(); // Récupère tous les matchs
+        return allMatches.filter(match =>
+            (match.equipe1.name === "TBD" || match.equipe2.name === "TBD") || matchsTBD.has(match.id)
+        );
+    } catch (error) {
+        console.error("❌ Erreur lors du filtrage des matchs :", error);
+        return [];
+    }
+}
+async function lookingForMatchTBD()
+{
+    const matchs = getMatchesTBD();
+    (await matchs).forEach(match => {
+        if(match.equipe1.name === "TBD" || match.equipe2.name === "TBD")
+            matchsTBD.add(match.id);
+    });
+
+    const determined = [];
+    (await matchs).forEach(match => {
+        if(match.equipe1.name !== "TBD" && match.equipe2.name !== "TBD")
+        {
+            determined.push(match)
+            matchsTBD.delete(match.id)
+        }
+
+    });
+
+    await createMatchVoteMessage(determined, true)
+}
+
 cron.schedule("* * * * *", () => lookingForMatch(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
+cron.schedule("* * * * *", () => lookingForMatchTBD(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
 
 client.login(process.env.DISCORD_TOKEN);
