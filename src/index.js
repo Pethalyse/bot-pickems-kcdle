@@ -27,8 +27,8 @@ async function getMatchsKeys()
     }
 }
 
-// Fonction pour récupérer les matchs à venir pour LFL et LEC
-async function getUpcomingMatches() {
+// Fonction pour récupérer tous les matchs
+async function getAllMatchs() {
     try {
         const responses = [];
         const keys = await getMatchsKeys();
@@ -85,7 +85,7 @@ async function getUpcomingMatches() {
 //     const channel = await client.channels.fetch(CHANNEL_ID);
 //     if (!channel) return console.error("❌ Salon introuvable.");
 //
-//     const matches = await getUpcomingMatches();
+//     const matches = await getAllMatchs();
 //     if (matches.length === 0) return;
 //
 //     const today = new Date();
@@ -189,7 +189,7 @@ async function createMatchVoteMessage(matches, everyone = false){
 }
 
 async function sendMatchReminder(everyone = false) {
-    const matches = await getUpcomingMatches();
+    const matches = await getAllMatchs();
     if (matches.length === 0) return;
 
     const today = new Date();
@@ -495,6 +495,37 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
+const matchWithoutWinner = new Set(); // Stocke les matchs déjà annoncés
 
+async function getMatchesWithoutWinner() {
+    try {
+        const allMatches = await getAllMatchs(); // Récupère tous les matchs
+        return allMatches.filter(match =>
+            (match.gagnant === null || match.perdant === null) || matchWithoutWinner.has(match.id)
+        );
+    } catch (error) {
+        console.error("❌ Erreur lors du filtrage des matchs :", error);
+        return [];
+    }
+}
+
+async function lookingForMatch()
+{
+    const matchs = getAllMatchs();
+    (await matchs).forEach(match => {
+        if(match.gagnant === null || match.perdant === null)
+            matchWithoutWinner.add(match.id);
+    });
+
+    const finish = [];
+    (await matchs).forEach(match => {
+        if(match.gagnant !== null && match.perdant !== null)
+            finish.push(match)
+            matchWithoutWinner.delete(match.id)
+    });
+    await createResults(finish)
+}
+
+cron.schedule("* * * * *", () => lookingForMatch(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
 
 client.login(process.env.DISCORD_TOKEN);
