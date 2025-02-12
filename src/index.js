@@ -241,7 +241,7 @@ async function announceResults(phase = "") {
 }
 
 // Planification des tâches automatiques
-cron.schedule("0 8 * * *", () => sendMatchReminder(true), { timezone: "Europe/Paris" }); // Rappel à 8h
+cron.schedule("10 8 * * *", () => sendMatchReminder(true), { timezone: "Europe/Paris" }); // Rappel à 8h
 
 // Fonction pour récupérer les matchs de la semaine pour une ligue spécifique
 async function getMatchesForWeek(league) {
