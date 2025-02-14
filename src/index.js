@@ -138,7 +138,7 @@ async function createMatchVoteMessage(matches, everyone = false){
     if (!channel) return console.error("❌ Salon introuvable.");
 
     for (const match of matches) {
-        const match_coming = match.match_date > new Date().toISOString().split('T')[0];
+        const match_coming = match.match_date >= new Date().toISOString().split('T')[0];
 
         let title;
         if(!match_coming)
