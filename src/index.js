@@ -217,7 +217,7 @@ client.on('interactionCreate', async interaction => {
 
     try {
 
-        if(date <= new Date().toISOString().split('T')[0]){
+        if(date < new Date().toISOString().split('T')[0]){
             return interaction.reply({
                 content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
                 ephemeral: true
