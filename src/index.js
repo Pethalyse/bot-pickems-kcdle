@@ -291,8 +291,8 @@ async function votes(matches){
 
     for (const match of matches) {
         let list = []
-        for(const vote of matches.votes) {
-            list = match.votes.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
+        for(const vote of match.votes) {
+            list = vote.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
         }
 
         const embed = new EmbedBuilder()
