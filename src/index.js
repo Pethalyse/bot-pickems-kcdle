@@ -285,7 +285,13 @@ async function createResults(matches){
     }
 }
 
-async function votes(matches){
+async function votes(annee, league, phase, season) {
+    const matches = [...((await axios.get(`${API_URL}/get/matchs/vote/all/${annee}/${league}/${phase}/${season}`)).data)];
+    if (matches.length === 0) return
+    await createVotes(matches)
+}
+
+async function createVotes(matches){
     const channel = await client.channels.fetch(CHANNEL_ID);
     if (!channel) return console.error("❌ Salon introuvable.");
 
