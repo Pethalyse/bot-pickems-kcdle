@@ -290,10 +290,9 @@ async function votes(matches){
     if (!channel) return console.error("❌ Salon introuvable.");
 
     for (const match of matches) {
-        let list = []
-        for(const vote of match.votes) {
-            list = vote.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
-        }
+        if (!match.votes || match.votes.length === 0) continue;
+
+        const list = vote.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
 
         const embed = new EmbedBuilder()
             .setTitle(`🏆 Votes pour : ${match.equipe1.name} vs ${match.equipe2.name}`)
