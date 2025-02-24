@@ -285,6 +285,25 @@ async function createResults(matches){
     }
 }
 
+async function votes(matches){
+    const channel = await client.channels.fetch(CHANNEL_ID);
+    if (!channel) return console.error("❌ Salon introuvable.");
+
+    for (const match of matches) {
+        let list = []
+        for(const vote of matches.votes) {
+            list = match.votes.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle(`🏆 Votes pour : ${match.equipe1.name} vs ${match.equipe2.name}`)
+            .setDescription(list)
+            .setColor("Blue");
+
+        await channel.send({ embeds: [embed] });
+    }
+}
+
 // Planification des tâches automatiques
 cron.schedule("10 8 * * *", () => sendMatchReminder(true), { timezone: "Europe/Paris" }); // Rappel à 8h
 
@@ -368,6 +387,17 @@ client.on('interactionCreate', async interaction => {
         await createResults(await getWeekMatches(league))
         await interaction.editReply(`📢 Les résultats des matchs de la semaine pour la ligue **${league}** ont été envoyés !`);
     }
+
+    if (interaction.commandName === 'votes') {
+        const annee = interaction.options.getString('annee');
+        const league = interaction.options.getString('league');
+        const phase = interaction.options.getString('phase');
+        const season = interaction.options.getString('season');
+
+        await interaction.deferReply(); // Indique que le bot traite la commande
+        await votes(annee, league, phase, season);
+        await interaction.editReply("📢 Les votes demandés ont été envoyés !");
+    }
 });
 
 // Enregistrement de la commande `/matchs`
@@ -409,7 +439,6 @@ client.on('ready', async () => {
     );
     console.log("✅ Commande `/demain` enregistrée !");
 
-
     await guild.commands.create(
         new SlashCommandBuilder()
             .setName('matchs-results')
@@ -450,6 +479,47 @@ client.on('ready', async () => {
             )
     );
     console.log("✅ Commande `/matchs-results` enregistrée !");
+
+    await guild.commands.create(
+        new SlashCommandBuilder()
+            .setName('votes')
+            .setDescription("📅 Affiche les votes des match d'une phase")
+            .addStringOption(option =>
+                option.setName('annee')
+                    .setDescription("Choisis l'année'")
+                    .setRequired(true)
+                    .addChoices(annees)
+            )
+            .addStringOption(option =>
+                option.setName('league')
+                    .setDescription("Choisis la league'")
+                    .setRequired(true)
+                    .addChoices(leagues)
+            )
+            .addStringOption(option =>
+                option.setName('season')
+                    .setDescription("Choisis la saison'")
+                    .setRequired(true)
+                    .addChoices(
+                        {name: 'winter', value: 'winter'},
+                        {name: 'spring', value: 'spring'},
+                        {name: 'summer', value: 'summer'},
+                        {name: 'national', value: 'national'},
+                    )
+            )
+            .addStringOption(option =>
+                option.setName('phase')
+                    .setDescription("Choisis la phase du tournois'")
+                    .setRequired(true)
+                    .addChoices(
+                        {name: 'phase 1', value: '1'},
+                        {name: 'phase 2', value: '2'},
+                        {name: 'phase 3', value: '3'},
+                        {name: 'all', value: '0'},
+                    )
+            )
+    );
+    console.log("✅ Commande `/votes` enregistrée !");
 
     await guild.commands.create(
         new SlashCommandBuilder()
