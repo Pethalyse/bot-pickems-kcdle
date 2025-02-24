@@ -298,7 +298,7 @@ async function createVotes(matches){
     for (const match of matches) {
         if (!match.votes || match.votes.length === 0) continue;
 
-        const list = vote.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
+        const list = match.votes.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
 
         const embed = new EmbedBuilder()
             .setTitle(`🏆 Votes pour : ${match.equipe1.name} vs ${match.equipe2.name}`)
