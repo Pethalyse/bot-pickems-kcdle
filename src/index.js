@@ -133,45 +133,76 @@ async function getAllMatchs() {
 //     }
 // }
 
-async function createMatchVoteMessage(matches, everyone = false){
+async function createMatchVoteMessage(matches, everyone = false) {
     const channel = await client.channels.fetch(CHANNEL_ID);
     if (!channel) return console.error("❌ Salon introuvable.");
 
     for (const match of matches) {
         const pages = [];
-        const rows = [];
         let currentPage = 0;
 
         const match_coming = match.match_date >= new Date().toISOString().split('T')[0];
 
         let title;
-        if(!match_coming)
+        if (!match_coming)
             title = `📢 Match passé : **${match.equipe1.name}** 🆚 **${match.equipe2.name}**`;
         else
-            title = `📢 Match à venir : **${match.equipe1.name}** 🆚 **${match.equipe2.name}**`
+            title = `📢 Match à venir : **${match.equipe1.name}** 🆚 **${match.equipe2.name}**`;
 
-        pages.push(new EmbedBuilder()
-            .setTitle(title)
-            .setDescription(`🕐 **Date** : ${match.match_date}\n📝 Faites vos pickems maintenant !`)
-            .setColor("Blue")
-            .setThumbnail(match.equipe1.image) // Logo équipe 1 en petit
+        pages.push(
+            new EmbedBuilder()
+                .setTitle(title)
+                .setDescription(`🕐 **Date** : ${match.match_date}\n📝 Faites vos pickems maintenant !`)
+                .setColor("Blue")
+                .setThumbnail(match.equipe1.image)
+                .addFields(
+                    {name: "🏆 **Équipe 1**", value: `**${match.equipe1.name}**`, inline: true},
+                    {name: "⚔️ **VS**", value: "⠀", inline: true},
+                    {name: "🏆 **Équipe 2**", value: `**${match.equipe2.name}**`, inline: true}
+                )
+        );
 
-            // Utilisation des champs pour simuler un affichage côte à côte
-            .addFields(
-                { name: "🏆 **Équipe 1**", value: `**${match.equipe1.name}**`, inline: true },
-                { name: "⚔️ **VS**", value: "⠀", inline: true }, // Espace pour aligner
-                { name: "🏆 **Équipe 2**", value: `**${match.equipe2.name}**`, inline: true }
-            ))
-
-        pages.push(await createVotesPage(match))
+        pages.push(await createVotesPage(match));
 
         let content = "";
-        if(everyone)
-            content = "📢 Votez pour le match de demain !";
+        if (everyone) content = "📢 Votez pour le match de demain !";
 
-        const row= new ActionRowBuilder()
-        if(match_coming)
-        {
+        // Créer une première rangée de boutons
+        const initialRow = new ActionRowBuilder();
+        if (match_coming) {
+            initialRow.addComponents(
+                new ButtonBuilder()
+                    .setLabel("Voter pour " + match.equipe1.name)
+                    .setStyle(ButtonStyle.Primary)
+                    .setCustomId(`vote_${match.id}_${match.equipe1.name}_${match.match_date}`),
+                new ButtonBuilder()
+                    .setLabel("Voter pour " + match.equipe2.name)
+                    .setStyle(ButtonStyle.Primary)
+                    .setCustomId(`vote_${match.id}_${match.equipe2.name}_${match.match_date}`)
+            );
+        }
+        initialRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId('next_page')
+                .setLabel('➡️')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(pages.length <= 1)
+        );
+
+        // Envoyer le message initial
+        const message = await channel.send({content, embeds: [pages[currentPage]], components: [initialRow]});
+
+        // Lancer le collecteur récurrent sur ce message
+        setupRecurringCollector(message, pages, currentPage, match);
+    }
+}
+
+// Fonction qui crée une rangée de boutons frais selon la page actuelle
+function getFreshRows(currentPage, match, match_coming) {
+    const row = new ActionRowBuilder();
+    if(currentPage === 0){
+        // Si le match est à venir, ajoute les boutons de vote en plus
+        if (match_coming) {
             row.addComponents(
                 new ButtonBuilder()
                     .setLabel("Voter pour " + match.equipe1.name)
@@ -183,104 +214,107 @@ async function createMatchVoteMessage(matches, everyone = false){
                     .setCustomId(`vote_${match.id}_${match.equipe2.name}_${match.match_date}`)
             );
         }
-        row.addComponents(new ButtonBuilder().setCustomId('next_page').setLabel('➡️').setStyle(ButtonStyle.Primary).setDisabled(pages.length <= 1))
-        rows.push(row)
 
-        const message = await channel.send({content: content, embeds: [pages[currentPage]], components: [rows[currentPage]] });
-
-        // Gérer les interactions avec les boutons
-        const collector = message.createMessageComponentCollector({ time: 60000 });
-
-        collector.on('collect', async interaction => {
-            if (!interaction.isButton()) return;
-
-            if(!interaction.customId.startsWith("vote"))
-            {
-                if (interaction.customId === 'prev_page' && currentPage > 0) {
-                    currentPage--;
-                } else if (interaction.customId === 'next_page' && currentPage < pages.length - 1) {
-                    currentPage++;
-                } else if(interaction.customId === 'reload'){
-                    pages[currentPage] = await createVotesPage(match)
-                }
-
-                rows.push(new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('prev_page').setLabel('⬅️').setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId('reload').setLabel('🔄').setStyle(ButtonStyle.Primary),
-                ))
-                await interaction.update({ embeds: [pages[currentPage]], components: [rows[currentPage]] });
-            }
-            else { // Si l'interaction est un vote
-                const userId = interaction.user.id; // ID Discord de l'utilisateur
-                const matchId = interaction.customId.split('_')[1];
-                const team = interaction.customId.split('_')[2];
-                const date = interaction.customId.split('_')[3];
-
-                try {
-                    if(date < new Date().toISOString().split('T')[0]){
-                        if (interaction.replied || interaction.deferred) {
-                            return interaction.followUp({
-                                content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
-                                ephemeral: true
-                            });
-                        } else {
-                            return interaction.reply({
-                                content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
-                                ephemeral: true
-                            });
-                        }
-                    }
-
-                    // Vérifier si le compte est lié
-                    const response = await axios.get(`${API_URL}/get/user/discord/${userId}`);
-                    const userData = response.data;
-
-                    if (!userData || !userData.id) {
-                        if (interaction.replied || interaction.deferred) {
-                            return interaction.followUp({
-                                content: "❌ Tu dois d'abord associer ton compte ! Tape `/link` pour le faire.",
-                                ephemeral: true
-                            });
-                        } else {
-                            return interaction.reply({
-                                content: "❌ Tu dois d'abord associer ton compte ! Tape `/link` pour le faire.",
-                                ephemeral: true
-                            });
-                        }
-                    }
-                    // Envoi du vote à l’API du site
-                    const rep = await axios.post(`${API_URL}/vote`, {
-                        user_id: userData.id,
-                        match_id: matchId,
-                        team: team
-                    }, {
-                        headers: { "Content-Type": "application/json" }
-                    });
-
-                    if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({
-                            content: `✅ Ton vote pour **${team}** a été enregistré !`,
-                            ephemeral: true
-                        });
-                    } else {
-                        await interaction.reply({
-                            content: `✅ Ton vote pour **${team}** a été enregistré !`,
-                            ephemeral: true
-                        });
-                    }
-
-                } catch (error) {
-                    console.error("❌ Erreur lors de l'enregistrement du vote :", error);
-                    if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ content: "❌ Une erreur est survenue.", ephemeral: true });
-                    } else {
-                        await interaction.reply({ content: "❌ Une erreur est survenue.", ephemeral: true });
-                    }
-                }
-            }
-        });
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId('next_page')
+                .setLabel('➡️')
+                .setStyle(ButtonStyle.Primary)
+        );
     }
+    else if(currentPage === 1)
+    {
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId('prev_page')
+                .setLabel('⬅️')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('reload')
+                .setLabel('🔄')
+                .setStyle(ButtonStyle.Primary)
+        );
+
+    }
+
+    return [row];
 }
+
+// Fonction qui installe un collecteur et le relance dès qu'il expire
+function setupRecurringCollector(message, pages, currentPage, match) {
+    // Détermine si le match est à venir (pour afficher ou non les boutons de vote)
+    const match_coming = match.match_date >= new Date().toISOString().split('T')[0];
+
+    const collector = message.createMessageComponentCollector({ time: 60000 });
+    collector.on('collect', async interaction => {
+        if (!interaction.isButton()) return;
+
+        // Si l'interaction n'est pas un vote
+        if (!interaction.customId.startsWith("vote")) {
+            if (interaction.customId === 'prev_page' && currentPage > 0) {
+                currentPage--;
+            } else if (interaction.customId === 'next_page' && currentPage < pages.length - 1) {
+                currentPage++;
+            } else if (interaction.customId === 'reload') {
+                pages[currentPage] = await createVotesPage(match);
+            }
+
+            // Créer une nouvelle rangée de boutons fraîches
+            const newRows = getFreshRows(currentPage, match, match_coming);
+            await interaction.update({ embeds: [pages[currentPage]], components: newRows });
+        } else {
+            // Branche vote
+            await interaction.deferReply({ ephemeral: true });
+            const userId = interaction.user.id;
+            const matchId = interaction.customId.split('_')[1];
+            const team = interaction.customId.split('_')[2];
+            const date = interaction.customId.split('_')[3];
+            try {
+                if (date < new Date().toISOString().split('T')[0]) {
+                    return await interaction.editReply({
+                        content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
+                        ephemeral: true
+                    });
+                }
+                const response = await axios.get(`${API_URL}/get/user/discord/${userId}`);
+                const userData = response.data;
+                if (!userData || !userData.id) {
+                    return await interaction.editReply({
+                        content: "❌ Tu dois d'abord associer ton compte ! Tape `/link` pour le faire.",
+                        ephemeral: true
+                    });
+                }
+                const rep = await axios.post(`${API_URL}/vote`, {
+                    user_id: userData.id,
+                    match_id: matchId,
+                    team: team
+                }, {
+                    headers: { "Content-Type": "application/json" }
+                });
+                await interaction.editReply({
+                    content: `✅ Ton vote pour **${team}** a été enregistré !`,
+                    ephemeral: true
+                });
+            } catch (error) {
+                console.error("❌ Erreur lors de l'enregistrement du vote :", error);
+                await interaction.editReply({ content: "❌ Une erreur est survenue.", ephemeral: true });
+            }
+        }
+    });
+
+    collector.on('end', async () => {
+        // À la fin du collecteur, on recrée de nouveaux composants et on relance le collecteur
+        const newRows = getFreshRows(currentPage, match, match_coming);
+        try {
+            await message.edit({ components: newRows });
+            // Relancer le collecteur avec les mêmes pages et la page courante
+            setupRecurringCollector(message, pages, currentPage, match);
+        } catch (error) {
+            console.error("Erreur lors du rafraîchissement du collecteur :", error);
+        }
+    });
+}
+
 
 async function createVotesPage(match){
     const votes = ((await axios.get(`${API_URL}/get/match/votes/${match.id}`)).data);
