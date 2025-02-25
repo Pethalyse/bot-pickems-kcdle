@@ -35,10 +35,10 @@ async function getAllMatchs() {
         for (const annee of Object.keys(keys)) {
             for (const league of Object.keys(keys[annee])) {
                 if(league === "worlds") continue
-                responses.push(...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/0/winter`)).data))
-                responses.push(...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/0/spring`)).data))
-                responses.push(...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/0/summer`)).data))
-                responses.push(...((await axios.get(`${API_URL}/get/matchs/${annee}/${league}/0/national`)).data))
+                responses.push(...((await axios.get(`${API_URL}/get/matchs/vote/all/${annee}/${league}/0/winter`)).data))
+                responses.push(...((await axios.get(`${API_URL}/get/matchs/vote/all/${annee}/${league}/0/spring`)).data))
+                responses.push(...((await axios.get(`${API_URL}/get/matchs/vote/all/${annee}/${league}/0/summer`)).data))
+                responses.push(...((await axios.get(`${API_URL}/get/matchs/vote/all/${annee}/${league}/0/national`)).data))
             }
         }
         return responses
@@ -138,6 +138,10 @@ async function createMatchVoteMessage(matches, everyone = false){
     if (!channel) return console.error("❌ Salon introuvable.");
 
     for (const match of matches) {
+        const pages = [];
+        const rows = [];
+        let currentPage = 0;
+
         const match_coming = match.match_date >= new Date().toISOString().split('T')[0];
 
         let title;
@@ -146,8 +150,7 @@ async function createMatchVoteMessage(matches, everyone = false){
         else
             title = `📢 Match à venir : **${match.equipe1.name}** 🆚 **${match.equipe2.name}**`
 
-
-        const embed = new EmbedBuilder()
+        pages.push(new EmbedBuilder()
             .setTitle(title)
             .setDescription(`🕐 **Date** : ${match.match_date}\n📝 Faites vos pickems maintenant !`)
             .setColor("Blue")
@@ -158,33 +161,135 @@ async function createMatchVoteMessage(matches, everyone = false){
                 { name: "🏆 **Équipe 1**", value: `**${match.equipe1.name}**`, inline: true },
                 { name: "⚔️ **VS**", value: "⠀", inline: true }, // Espace pour aligner
                 { name: "🏆 **Équipe 2**", value: `**${match.equipe2.name}**`, inline: true }
-            );
+            ))
+
+        pages.push(await createVotesPage(match))
 
         let content = "";
         if(everyone)
-            content = "📢 Votez pour le match de demain ! || @everyone ||";
+            content = "📢 Votez pour le match de demain !";
 
+        const row= new ActionRowBuilder()
         if(match_coming)
         {
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setLabel("Voter pour " + match.equipe1.name)
-                        .setStyle(ButtonStyle.Primary)
-                        .setCustomId(`vote_${match.id}_${match.equipe1.name}_${match.match_date}`),
-                    new ButtonBuilder()
-                        .setLabel("Voter pour " + match.equipe2.name)
-                        .setStyle(ButtonStyle.Primary)
-                        .setCustomId(`vote_${match.id}_${match.equipe2.name}_${match.match_date}`)
-                );
-
-            await channel.send({content: content, embeds: [embed], components: [row] });
-
+            row.addComponents(
+                new ButtonBuilder()
+                    .setLabel("Voter pour " + match.equipe1.name)
+                    .setStyle(ButtonStyle.Primary)
+                    .setCustomId(`vote_${match.id}_${match.equipe1.name}_${match.match_date}`),
+                new ButtonBuilder()
+                    .setLabel("Voter pour " + match.equipe2.name)
+                    .setStyle(ButtonStyle.Primary)
+                    .setCustomId(`vote_${match.id}_${match.equipe2.name}_${match.match_date}`)
+            );
         }
-        else
-            await channel.send({content: content, embeds: [embed] });
+        row.addComponents(new ButtonBuilder().setCustomId('next_page').setLabel('➡️').setStyle(ButtonStyle.Primary).setDisabled(pages.length <= 1))
+        rows.push(row)
 
+        const message = await channel.send({content: content, embeds: [pages[currentPage]], components: [rows[currentPage]] });
+
+        // Gérer les interactions avec les boutons
+        const collector = message.createMessageComponentCollector({ time: 60000 });
+
+        collector.on('collect', async interaction => {
+            if (!interaction.isButton()) return;
+
+            if(!interaction.customId.startsWith("vote"))
+            {
+                if (interaction.customId === 'prev_page' && currentPage > 0) {
+                    currentPage--;
+                } else if (interaction.customId === 'next_page' && currentPage < pages.length - 1) {
+                    currentPage++;
+                } else if(interaction.customId === 'reload'){
+                    pages[currentPage] = await createVotesPage(match)
+                }
+
+                rows.push(new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('prev_page').setLabel('⬅️').setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId('reload').setLabel('🔄').setStyle(ButtonStyle.Primary),
+                ))
+                await interaction.update({ embeds: [pages[currentPage]], components: [rows[currentPage]] });
+            }
+            else { // Si l'interaction est un vote
+                const userId = interaction.user.id; // ID Discord de l'utilisateur
+                const matchId = interaction.customId.split('_')[1];
+                const team = interaction.customId.split('_')[2];
+                const date = interaction.customId.split('_')[3];
+
+                try {
+                    if(date < new Date().toISOString().split('T')[0]){
+                        if (interaction.replied || interaction.deferred) {
+                            return interaction.followUp({
+                                content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
+                                ephemeral: true
+                            });
+                        } else {
+                            return interaction.reply({
+                                content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
+                                ephemeral: true
+                            });
+                        }
+                    }
+
+                    // Vérifier si le compte est lié
+                    const response = await axios.get(`${API_URL}/get/user/discord/${userId}`);
+                    const userData = response.data;
+
+                    if (!userData || !userData.id) {
+                        if (interaction.replied || interaction.deferred) {
+                            return interaction.followUp({
+                                content: "❌ Tu dois d'abord associer ton compte ! Tape `/link` pour le faire.",
+                                ephemeral: true
+                            });
+                        } else {
+                            return interaction.reply({
+                                content: "❌ Tu dois d'abord associer ton compte ! Tape `/link` pour le faire.",
+                                ephemeral: true
+                            });
+                        }
+                    }
+                    // Envoi du vote à l’API du site
+                    const rep = await axios.post(`${API_URL}/vote`, {
+                        user_id: userData.id,
+                        match_id: matchId,
+                        team: team
+                    }, {
+                        headers: { "Content-Type": "application/json" }
+                    });
+
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp({
+                            content: `✅ Ton vote pour **${team}** a été enregistré !`,
+                            ephemeral: true
+                        });
+                    } else {
+                        await interaction.reply({
+                            content: `✅ Ton vote pour **${team}** a été enregistré !`,
+                            ephemeral: true
+                        });
+                    }
+
+                } catch (error) {
+                    console.error("❌ Erreur lors de l'enregistrement du vote :", error);
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp({ content: "❌ Une erreur est survenue.", ephemeral: true });
+                    } else {
+                        await interaction.reply({ content: "❌ Une erreur est survenue.", ephemeral: true });
+                    }
+                }
+            }
+        });
     }
+}
+
+async function createVotesPage(match){
+    const votes = ((await axios.get(`${API_URL}/get/match/votes/${match.id}`)).data);
+
+    const list = votes.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
+    return new EmbedBuilder()
+        .setTitle(`🏆 Votes pour : ${match.equipe1.name} vs ${match.equipe2.name}`)
+        .setDescription(list)
+        .setColor("Blue")
 }
 
 async function sendMatchReminder(everyone = false) {
@@ -207,52 +312,54 @@ async function sendMatchReminder(everyone = false) {
 
 
 // Gérer les votes des utilisateurs
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-
-    const userId = interaction.user.id; // ID Discord de l'utilisateur
-    const matchId = interaction.customId.split('_')[1];
-    const team = interaction.customId.split('_')[2];
-    const date = interaction.customId.split('_')[3];
-
-    try {
-
-        if(date < new Date().toISOString().split('T')[0]){
-            return interaction.reply({
-                content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
-                ephemeral: true
-            });
-        }
-
-        // Vérifier si le compte est lié
-        const response = await axios.get(`${API_URL}/get/user/discord/${userId}`);
-        const userData = response.data;
-
-        if (!userData || !userData.id) {
-            return interaction.reply({
-                content: "❌ Tu dois d'abord associer ton compte ! Tape `/link` pour le faire.",
-                ephemeral: true
-            });
-        }
-        // Envoi du vote à l’API du site
-        const rep = await axios.post(`${API_URL}/vote`, {
-            user_id: userData.id,
-            match_id: matchId,
-            team: team
-        }, {
-            headers: { "Content-Type": "application/json" }
-        });
-
-        await interaction.reply({
-            content: `✅ Ton vote pour **${team}** a été enregistré !`,
-            ephemeral: true
-        });
-
-    } catch (error) {
-        console.error("❌ Erreur lors de l'enregistrement du vote :", error);
-        await interaction.reply({ content: "❌ Une erreur est survenue.", ephemeral: true });
-    }
-});
+// client.on('interactionCreate', async interaction => {
+//     if (!interaction.isButton()) return;
+//     if(!interaction.customId) return;
+//     if(!interaction.customId.startsWith("vote")) return;
+//
+//     const userId = interaction.user.id; // ID Discord de l'utilisateur
+//     const matchId = interaction.customId.split('_')[1];
+//     const team = interaction.customId.split('_')[2];
+//     const date = interaction.customId.split('_')[3];
+//
+//     try {
+//
+//         if(date < new Date().toISOString().split('T')[0]){
+//             return interaction.reply({
+//                 content: "❌ Tu ne peux pas voter pour un match passé ou qui se joue aujourd'hui, tricheur je te vois.",
+//                 ephemeral: true
+//             });
+//         }
+//
+//         // Vérifier si le compte est lié
+//         const response = await axios.get(`${API_URL}/get/user/discord/${userId}`);
+//         const userData = response.data;
+//
+//         if (!userData || !userData.id) {
+//             return interaction.reply({
+//                 content: "❌ Tu dois d'abord associer ton compte ! Tape `/link` pour le faire.",
+//                 ephemeral: true
+//             });
+//         }
+//         // Envoi du vote à l’API du site
+//         const rep = await axios.post(`${API_URL}/vote`, {
+//             user_id: userData.id,
+//             match_id: matchId,
+//             team: team
+//         }, {
+//             headers: { "Content-Type": "application/json" }
+//         });
+//
+//         await interaction.reply({
+//             content: `✅ Ton vote pour **${team}** a été enregistré !`,
+//             ephemeral: true
+//         });
+//
+//     } catch (error) {
+//         console.error("❌ Erreur lors de l'enregistrement du vote :", error);
+//         await interaction.reply({ content: "❌ Une erreur est survenue.", ephemeral: true });
+//     }
+// });
 
 // Annonce des résultats après les matchs
 async function announceResults(annee, league, phase, season) {
@@ -315,7 +422,7 @@ cron.schedule("10 8 * * *", () => sendMatchReminder(true), { timezone: "Europe/P
 // Fonction pour récupérer les matchs de la semaine pour une ligue spécifique
 async function getMatchesForWeek(annee, league, phase, season) {
     try {
-        const response = await axios.get(`${API_URL}/get/matchs/${annee}/${league}/${phase}/${season}`);
+        const response = await axios.get(`${API_URL}/get/matchs/vote/all/${annee}/${league}/${phase}/${season}`);
         const allMatches = response.data;
 
         // Obtenir la date de début de semaine et la date de fin de semaine
