@@ -141,6 +141,7 @@ async function createMatchVoteMessage(matches, everyone = false) {
         const pages = [];
         let currentPage = 0;
 
+        console.log(match)
         const match_coming = match.match_date >= new Date().toISOString().split('T')[0];
 
         let title;
@@ -319,10 +320,10 @@ function setupRecurringCollector(message, pages, currentPage, match) {
 async function createVotesPage(match){
     const votes = ((await axios.get(`${API_URL}/get/match/votes/${match.id}`)).data);
 
-    const list = votes.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
+    let list = votes.map(vote => `👤 **${vote.pseudo}** a voté pour **${vote.equipe_vote}**`).join("\n");
     return new EmbedBuilder()
         .setTitle(`🏆 Votes pour : ${match.equipe1.name} vs ${match.equipe2.name}`)
-        .setDescription(list)
+        .setDescription(list.length > 0 ? list : null)
         .setColor("Blue")
 }
 
