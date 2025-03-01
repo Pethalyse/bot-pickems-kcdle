@@ -138,6 +138,7 @@ async function createMatchVoteMessage(matches, everyone = false) {
     if (!channel) return console.error("❌ Salon introuvable.");
 
     for (const match of matches) {
+        if(match.equipe1.name === "TBD" || match.equipe2.name === "TBD") continue
         const pages = [];
         let currentPage = 0;
 
