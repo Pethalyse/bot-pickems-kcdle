@@ -433,18 +433,19 @@ async function createClassement(annee, league, phase, season){
     if (!channel) return console.error("❌ Salon introuvable.");
 
     const classement = [...((await axios.get(`${API_URL}/get/classement/${annee}/${league}/${phase}/${season}`)).data)];
-
     let list = classement.map(user =>
         `${
-        user.position < 3 ? user.position : 
+        user.position > 3 ? `** ${user.position} **` : 
         user.position === 1 ? '🏆' : 
         user.position === 2 ? '🥈' : '🥉'
-        } 
-        **${user.name}** avec **${user.percent}%**`).join("\n");
-    return new EmbedBuilder()
+        } **${user.name}** avec **${user.percent}%**`).join("\n");
+
+    const embed = new EmbedBuilder()
         .setTitle(`🎖️ Classement pour ${league} ${season} ${annee} phase ${phase}`)
         .setDescription(list.length > 0 ? list : null)
         .setColor("Yellow")
+
+    await channel.send({ embeds: [embed] });
 }
 
 async function votes(annee, league, phase, season) {
