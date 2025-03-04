@@ -428,6 +428,25 @@ async function createResults(matches){
     }
 }
 
+async function createClassement(annee, league, phase, season){
+    const channel = await client.channels.fetch(CHANNEL_ID);
+    if (!channel) return console.error("❌ Salon introuvable.");
+
+    const classement = [...((await axios.get(`${API_URL}/get/classement/${annee}/${league}/${phase}/${season}`)).data)];
+
+    let list = classement.map(user =>
+        `${
+        user.position < 3 ? user.position : 
+        user.position === 1 ? '🏆' : 
+        user.position === 2 ? '🥈' : '🥉'
+        } 
+        **${user.name}** avec **${user.percent}%**`).join("\n");
+    return new EmbedBuilder()
+        .setTitle(`🎖️ Classement pour ${league} ${season} ${annee} phase ${phase}`)
+        .setDescription(list.length > 0 ? list : null)
+        .setColor("Yellow")
+}
+
 async function votes(annee, league, phase, season) {
     const matches = [...((await axios.get(`${API_URL}/get/matchs/vote/all/${annee}/${league}/${phase}/${season}`)).data)];
     if (matches.length === 0) return
@@ -525,6 +544,17 @@ client.on('interactionCreate', async interaction => {
 
         await interaction.deferReply(); // Indique que le bot traite la commande
         await announceResults(annee, league, phase, season);
+        await interaction.editReply("📢 Les résultats ont été envoyés !");
+    }
+
+    if (interaction.commandName === 'classement') {
+        const annee = interaction.options.getString('annee');
+        const league = interaction.options.getString('league');
+        const phase = interaction.options.getString('phase');
+        const season = interaction.options.getString('season');
+
+        await interaction.deferReply(); // Indique que le bot traite la commande
+        await createClassement(annee, league, phase, season);
         await interaction.editReply("📢 Les résultats ont été envoyés !");
     }
 
@@ -627,6 +657,47 @@ client.on('ready', async () => {
             )
     );
     console.log("✅ Commande `/matchs-results` enregistrée !");
+
+    await guild.commands.create(
+        new SlashCommandBuilder()
+            .setName('classement')
+            .setDescription("📅 Affiche le classement des matchs d'une phase")
+            .addStringOption(option =>
+                option.setName('annee')
+                    .setDescription("Choisis l'année'")
+                    .setRequired(true)
+                    .addChoices(annees)
+            )
+            .addStringOption(option =>
+                option.setName('league')
+                    .setDescription("Choisis la league'")
+                    .setRequired(true)
+                    .addChoices(leagues)
+            )
+            .addStringOption(option =>
+                option.setName('season')
+                    .setDescription("Choisis la saison'")
+                    .setRequired(true)
+                    .addChoices(
+                        {name: 'winter', value: 'winter'},
+                        {name: 'spring', value: 'spring'},
+                        {name: 'summer', value: 'summer'},
+                        {name: 'national', value: 'national'},
+                    )
+            )
+            .addStringOption(option =>
+                option.setName('phase')
+                    .setDescription("Choisis la phase du tournois'")
+                    .setRequired(true)
+                    .addChoices(
+                        {name: 'phase 1', value: '1'},
+                        {name: 'phase 2', value: '2'},
+                        {name: 'phase 3', value: '3'},
+                        {name: 'all', value: '0'},
+                    )
+            )
+    );
+    console.log("✅ Commande `/classement` enregistrée !");
 
     await guild.commands.create(
         new SlashCommandBuilder()
