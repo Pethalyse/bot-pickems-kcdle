@@ -851,7 +851,7 @@ async function lookingForMatchTBD()
     await createMatchVoteMessage(determined, true)
 }
 
-cron.schedule("* * * * *", () => lookingForMatch(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
-cron.schedule("* * * * *", () => lookingForMatchTBD(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
+cron.schedule("10 * * * *", () => lookingForMatch(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
+cron.schedule("10 * * * *", () => lookingForMatchTBD(), { timezone: "Europe/Paris" }); // Verification toutes les minutes
 
 client.login(process.env.DISCORD_TOKEN);
