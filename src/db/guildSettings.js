@@ -1,0 +1,45 @@
+import pool from './pool.js';
+
+export async function getGuildSettings(guildId) {
+    const { rows } = await pool.query(
+        `SELECT guild_id, timezone, leagues FROM guild_settings WHERE guild_id=$1`, [guildId]
+    );
+    return rows[0] || null;
+}
+
+export async function upsertGuildSettings({ guildId, timezone, leagues }) {
+    const { rows } = await pool.query(
+        `INSERT INTO guild_settings (guild_id, timezone, leagues)
+     VALUES ($1, COALESCE($2,'Europe/Paris'), COALESCE($3,'{}'::BIGINT[]))
+     ON CONFLICT (guild_id) DO UPDATE
+       SET timezone = COALESCE(EXCLUDED.timezone, guild_settings.timezone),
+           leagues  = COALESCE(EXCLUDED.leagues,  guild_settings.leagues)
+     RETURNING guild_id, timezone, leagues`,
+        [guildId, timezone ?? null, leagues ?? null]
+    );
+    return rows[0];
+}
+
+export async function setGuildLeagues(guildId, leagueIds = []) {
+    const { rows } = await pool.query(
+        `UPDATE guild_settings SET leagues=$2 WHERE guild_id=$1
+     RETURNING guild_id, timezone, leagues`,
+        [guildId, leagueIds]
+    );
+    return rows[0];
+}
+
+export async function setGuildTimezone(guildId, tz) {
+    const { rows } = await pool.query(
+        `UPDATE guild_settings SET timezone=$2 WHERE guild_id=$1
+     RETURNING guild_id, timezone, leagues`,
+        [guildId, tz]
+    );
+    return rows[0];
+}
+
+export async function ensureGuildSettings(guildId, defaults) {
+    const cur = await getGuildSettings(guildId);
+    if (cur) return cur;
+    return upsertGuildSettings({ guildId, ...defaults });
+}
