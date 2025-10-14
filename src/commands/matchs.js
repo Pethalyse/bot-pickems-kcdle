@@ -1,20 +1,15 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getGuildSettings } from '../db/guildSettings.js';
 import { matchesRepo } from '../db/matchesRepo.js';
 import { matchEmbed } from '../ui/embeds.js';
 import { voteButtons } from '../ui/voteComponents.js';
-import { buildPageRow } from '../ui/paginator.js';
-import { predictionsRepo } from '../db/predictionsRepo.js';
-import {Command} from "../core/Command.js";
+import { buildMatchSelect } from '../ui/matchPicker.js';
 
-
-export default class MatchsCommand extends Command {
+export default class MatchsCommand {
     constructor() {
-        super();
         this.data = new SlashCommandBuilder()
             .setName('matchs')
-            .setDescription('Prochains matchs (avec boutons de vote)');
-        this.name = this.data.name;
+            .setDescription('Prochains matchs (sélecteur + vote)');
     }
 
     async execute(interaction, ctx) {
@@ -23,56 +18,87 @@ export default class MatchsCommand extends Command {
             return interaction.reply({ content: "⚙️ Configure d’abord `/setup leagues`.", ephemeral: true });
         }
 
-        const matches = await matchesRepo.upcomingByLeagues(gs.leagues, 50);
-        if (!matches.length) return interaction.reply({ content: "📭 Aucun match à venir.", ephemeral: true });
+        // on prend large pour la journée / week-end
+        const matches = await matchesRepo.upcomingByLeagues(gs.leagues, 100);
+        if (!matches.length) {
+            return interaction.reply({ content: "📭 Aucun match à venir.", ephemeral: true });
+        }
 
-        const page = 0;
-        const m0 = matches[page];
-
-        const key = `${interaction.guildId}:${interaction.channelId}:matchs`;
+        const key = `${interaction.guildId}:${interaction.channelId}:matchs_ids`;
         ctx.cache.set(key, { ids: matches.map(m => m.id) }, 60_000);
 
+        // afficher un header + sélecteur; pas de vote tant que rien n’est choisi
+        const header = new EmbedBuilder()
+            .setTitle('🗓️ Matchs à venir')
+            .setDescription(`Utilise le sélecteur ci-dessous pour afficher un match et voter.`);
 
-        const currentPick = await predictionsRepo.findUserChoice(interaction.guildId, m0.id, interaction.user.id);
-        const embed = matchEmbed(m0);
-        if (currentPick) {
-            const label = currentPick === m0.team1_id
-                ? (m0.team1_acronym ?? m0.team1_name)
-                : (m0.team2_acronym ?? m0.team2_name);
-            embed.setFooter({ text: `Ton pick : ${label}` });
-        }
-        const votes = voteButtons(m0);
-        const pager = buildPageRow('matchs', page, matches.length);
+        const { rows } = buildMatchSelect({ cmdName: 'matchs', matches, offset: 0, total: matches.length });
 
-        await interaction.reply({ embeds: [embed], components: [votes, pager] });
+        await interaction.reply({
+            embeds: [header],
+            components: rows
+        });
     }
 
     async onComponent(interaction, ctx) {
-        // customId: "matchs:prev:2" | "matchs:next:2"
-        const [prefix, action, pageStr] = interaction.customId.split(':');
+        const [prefix, kind, arg] = interaction.customId.split(':');
         if (prefix !== 'matchs') return;
-        const key = `${interaction.guildId}:${interaction.channelId}:matchs`;
 
-        await interaction.deferUpdate();
-
+        const key = `${interaction.guildId}:${interaction.channelId}:matchs_ids`;
         let state = await ctx.cache.get(key);
         if (!state) {
-            const gs = await getGuildSettings(interaction.guildId);
-            const fresh = await (gs?.leagues?.length ? matchesRepo.upcomingByLeagues(gs.leagues, 50) : []);
-            state = { ids: fresh.map(m => m.id) };
-            ctx.cache.set(key, state, 60_000);
+            // cache expiré → re-fetch minimal
+            // (on ne connaît pas les ligues ici, mais on peut éviter la DB: on laisse l’utilisateur relancer /matchs)
+            return interaction.reply({ content: "⏳ La liste a expiré. Relance `/matchs`.", ephemeral: true });
         }
 
-        const cur = Number(pageStr) || 0;
-        const next = action === 'next' ? cur + 1 : cur - 1;
-        const matchId = state.ids[next];
-        if (!matchId) return;
+        // Reconstituer les matches à partir des IDs (on recharge tout d’un coup pour simplifier)
+        const ids = state.ids;
+        const matches = await Promise.all(ids.map(id => matchesRepo.byId(id)));
 
-        const match = await matchesRepo.byId(matchId);
-        const embed = matchEmbed(match);
-        const votes = voteButtons(match);
-        const pager = buildPageRow('matchs', next, state.ids.length);
+        // Navigation de la fenêtre
+        if (kind === 'list') {
+            await interaction.deferUpdate();
+            const prevOffset = Number(arg) || 0;
+            const windowSize = 25;
+            const nextOffset = interaction.customId.includes(':next:')
+                ? prevOffset + windowSize
+                : Math.max(0, prevOffset - windowSize);
 
-        await interaction.editReply({ embeds: [embed], components: [votes, pager] });
+            const { rows } = buildMatchSelect({ cmdName: 'matchs', matches, offset: nextOffset, total: matches.length });
+            // garde l’embed actuel si présent
+            const current = await interaction.message.fetch();
+            await interaction.editReply({
+                embeds: current.embeds, // ne pas toucher
+                components: rows
+            });
+            return;
+        }
+
+        // Sélection d’un match
+        if (kind === 'select') {
+            const matchId = Number(interaction.values?.[0]);
+            if (!matchId) {
+                return interaction.reply({ content: "❌ Sélection invalide.", ephemeral: true });
+            }
+            await interaction.deferUpdate(); // on va éditer le même message
+
+            const match = await matchesRepo.byId(matchId);
+            if (!match) {
+                return interaction.followUp({ content: "❌ Match introuvable.", ephemeral: true });
+            }
+
+            const embed = matchEmbed(match);
+            const votes = voteButtons(match);
+
+            const prevOffset = Number(arg) || 0;
+            const { rows } = buildMatchSelect({ cmdName: 'matchs', matches, offset: prevOffset, total: matches.length });
+
+            await interaction.editReply({
+                embeds: [embed],
+                components: [votes, ...rows] // votes au-dessus, puis sélecteur + nav
+            });
+
+        }
     }
 }
