@@ -2,7 +2,7 @@ import pool from './pool.js';
 
 export async function getGuildSettings(guildId) {
     const { rows } = await pool.query(
-        `SELECT guild_id, timezone, leagues FROM guild_settings WHERE guild_id=$1`, [guildId]
+        `SELECT guild_id, timezone, leagues, vote_channel_id FROM guild_settings WHERE guild_id=$1`, [guildId]
     );
     return rows[0] || null;
 }
