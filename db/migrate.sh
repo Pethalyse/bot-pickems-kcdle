@@ -15,6 +15,44 @@ until "${psql_base[@]}" -c "SELECT 1" >/dev/null 2>&1; do
   sleep 2
 done
 
+restore_if_empty() {
+  local n_tables
+  n_tables="$("${psql_base[@]}" -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")"
+  if [[ "${n_tables:-0}" != "0" ]]; then
+    echo "restore_if_empty: public schema not empty (${n_tables} table(s)) -> skip restore"
+    return
+  fi
+
+  local file="${BACKUP_FILE:-}"
+  if [[ -z "$file" ]]; then
+    file="$(ls -1t /backups/* 2>/dev/null | head -n1 || true)"
+  fi
+  if [[ -z "$file" || ! -f "$file" ]]; then
+    echo "restore_if_empty: no backup file found -> skip"
+    return
+  fi
+
+  echo "restore_if_empty: restoring from $file ..."
+  if [[ "$file" == *.dump || "$file" == *.dump.gz ]]; then
+    if [[ "$file" == *.gz ]]; then
+      gunzip -c "$file" | pg_restore --no-owner --no-privileges -h "$HOST" -U "$USER" -d "$DB"
+    else
+      pg_restore --no-owner --no-privileges -h "$HOST" -U "$USER" -d "$DB" "$file"
+    fi
+  else
+    if [[ "$file" == *.gz ]]; then
+      gunzip -c "$file" | "${psql_base[@]}"
+    else
+      "${psql_base[@]}" -f "$file"
+    fi
+  fi
+  echo "restore_if_empty: done."
+}
+
+if [[ "${RESTORE_ON_EMPTY:-0}" == "1" ]]; then
+  restore_if_empty
+fi
+
 # Table de migrations
 "${psql_base[@]}" -c "CREATE TABLE IF NOT EXISTS schema_migrations (
   id SERIAL PRIMARY KEY,
