@@ -44,6 +44,7 @@ export class Bot {
                 if (
                     interaction.isButton() ||
                     interaction.isStringSelectMenu() ||
+                    interaction.isChannelSelectMenu() ||
                     interaction.type === InteractionType.ModalSubmit
                 ) {
                     // convention: customId "cmd:action:payload"
@@ -51,6 +52,12 @@ export class Bot {
                     const cmd = this.#commands.get(name);
                     if (!cmd?.onComponent) return;
                     return await cmd.onComponent(interaction, this.#ctx);
+                }
+
+                if (interaction.isModalSubmit()) {
+                    const [name] = interaction.customId.split(':');
+                    const cmd = this.#commands.get(name);
+                    if (cmd?.onModalSubmit) return await cmd.onModalSubmit(interaction, this.#ctx);
                 }
             } catch (e) {
                 console.error(e);

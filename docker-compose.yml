@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "${EXPOSED_DB_PORT:-5432}:5432"
+      - "${EXPOSED_DB_PORT:-EXPOSED_DB_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
@@ -39,7 +39,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${EXPOSED_REDIS_PORT}:6379"
     command: [ "redis-server", "--save", "60", "1000", "--loglevel", "warning" ]
 
   migrator:
