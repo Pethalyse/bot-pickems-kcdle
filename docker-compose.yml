@@ -55,9 +55,9 @@ services:
       POSTGRES_HOST: db
       RESTORE_ON_EMPTY: "1"
     volumes:
+      - ./db/backups:/backups:ro
       - ./db/init:/migrations:ro
       - ./db/migrate.sh:/migrate.sh:ro
-      - ./db/backups:/backups:ro
     entrypoint: [ "bash", "/migrate.sh" ]
 
 volumes:
