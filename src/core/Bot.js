@@ -9,6 +9,7 @@ export class Bot {
     constructor(ctx) {
         this.#client = new Client({ intents: [GatewayIntentBits.Guilds] });
         this.#ctx = ctx;
+        this.#ctx.bot = this;
     }
 
     get client() { return this.#client; }
