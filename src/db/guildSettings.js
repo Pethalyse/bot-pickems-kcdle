@@ -43,3 +43,21 @@ export async function ensureGuildSettings(guildId, defaults) {
     if (cur) return cur;
     return upsertGuildSettings({ guildId, ...defaults });
 }
+
+export async function setGuildVoteChannel(guildId, channelId) {
+    const { rows } = await pool.query(
+        `UPDATE guild_settings SET vote_channel_id=$2 WHERE guild_id=$1
+     RETURNING guild_id, vote_channel_id, timezone, leagues`,
+        [guildId, channelId]
+    );
+    return rows[0];
+}
+
+export async function getAllGuildSettingsWithChannel() {
+    const { rows } = await pool.query(
+        `SELECT guild_id, vote_channel_id, timezone, leagues
+     FROM guild_settings
+     WHERE vote_channel_id IS NOT NULL`
+    );
+    return rows;
+}

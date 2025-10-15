@@ -3,6 +3,7 @@ import pool from './db/pool.js';
 import { Bot } from './core/Bot.js';
 import { publishGlobalCommands } from './infra/discord/registry.js';
 import { createCacheFromEnv } from './core/cacheFactory.js';
+import {scheduleDailyVotes} from "./scheduler/dailyVotes.js";
 
 const logger = console;
 const cache = await createCacheFromEnv();
@@ -17,6 +18,8 @@ await publishGlobalCommands({
     token: process.env.DISCORD_TOKEN,
     bot
 });
+
+await scheduleDailyVotes(ctx.bot, { logger: console });
 
 // ---- graceful shutdown ----
 async function shutdown(sig) {
