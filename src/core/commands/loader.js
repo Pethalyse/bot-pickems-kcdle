@@ -1,4 +1,3 @@
-// src/core/loader.js
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function loadCommands() {
-    const dir = path.resolve(__dirname, '../commands');
+    const dir = path.resolve(__dirname, './load');
     const files = (await readdir(dir)).filter(f => f.endsWith('.js'));
     const commands = new Map();
 

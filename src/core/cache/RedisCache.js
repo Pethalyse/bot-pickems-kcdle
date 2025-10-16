@@ -1,6 +1,7 @@
 import IORedis from 'ioredis';
+import {ICache} from "./ICache.js";
 
-export class RedisCache {
+export class RedisCache extends ICache {
     /**
      * @param {object} opts
      * @param {string} opts.url - ex: redis://redis:6379/0
@@ -8,6 +9,7 @@ export class RedisCache {
      * @param {string} [opts.namespace='pickems'] - préfixe des clés
      */
     constructor({ url, defaultTtlMs = 60_000, namespace = 'pickems' }) {
+        super();
         this.defaultTtlMs = defaultTtlMs;
         this.ns = namespace;
         this.redis = new IORedis(url, {
@@ -52,9 +54,7 @@ export class RedisCache {
         await this.redis.del(this.#k(key));
     }
 
-    /** ATTENTION: clear supprime toutes les clés du namespace */
     async clear() {
-        // SCAN + DEL pour éviter FLUSHALL
         const pattern = `${this.ns}:*`;
         let cursor = '0';
         do {

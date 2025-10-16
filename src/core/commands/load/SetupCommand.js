@@ -11,21 +11,21 @@ import {
     TextInputBuilder,
     TextInputStyle, PermissionFlagsBits,
 } from 'discord.js';
-import { Command } from '../core/Command.js';
+import { Command } from '../Command.js';
 import {
     getGuildSettings,
     ensureGuildSettings,
     setGuildLeagues,
     setGuildTimezone,
     setGuildVoteChannel,
-} from '../db/guildSettings.js';
-import { postTodayVotesForGuild, scheduleDailyVotesForGuild } from '../scheduler/dailyVotes.js';
+} from '../../../db/guildSettings.js';
+import { postTodayVotesForGuild, scheduleDailyVotesForGuild } from '../../../scheduler/dailyVotes.js';
+import {leaguesRepo} from "../../../db/leaguesRepo.js";
 
 const CMD = 'setup';
 
-// ---- helpers UI ----
-function buildMainEmbed(gs) {
-    const leaguesText = (gs.leagues?.length ? gs.leagues.join(', ') : '—');
+async function buildMainEmbed(gs) {
+    const leaguesText = gs.leagues ? (await leaguesRepo.byIds(gs.leagues || [])).map(l => l.name || l.slug || l.id).join(', ') : '—';
     const channelText = gs.vote_channel_id ? `<#${gs.vote_channel_id}>` : '—';
     const tzText = gs.timezone || 'Europe/Paris';
 
@@ -40,7 +40,7 @@ function buildMainEmbed(gs) {
                 `**Salon des votes quotidiens** : ${channelText}`,
             ].join('\n')
         )
-        .setFooter({ text: 'Toutes les actions sont éphémères.' });
+        .setFooter({text: 'Toutes les actions sont éphémères.'});
 }
 
 function buildMainRows() {
@@ -52,31 +52,31 @@ function buildMainRows() {
     return [row];
 }
 
-function buildLeaguesRow(gs) {
-    const quick = [
-        { label: 'LEC', value: String(process.env.LEAGUE_ID_LEC ?? '0') },
-        { label: 'LFL', value: String(process.env.LEAGUE_ID_LFL ?? '0') },
-        { label: 'Worlds', value: String(process.env.LEAGUE_ID_WORLDS ?? '0') },
-    ].filter(o => /^\d+$/.test(o.value));
+async function buildLeaguesRows(gs, offset = 0) {
+    const pageSize = 25;
+    const all = await leaguesRepo.listPaged(offset, pageSize);
+    const options = all.map(l => ({
+        label: l.name || l.slug || String(l.id),
+        value: String(l.id),
+        description: l.slug ? `slug: ${l.slug}` : undefined
+    }));
 
-    const menu = new StringSelectMenuBuilder()
-        .setCustomId(`${CMD}:set:leagues`)
-        .setPlaceholder('Sélectionne les ligues (multi)')
+    const select = new StringSelectMenuBuilder()
+        .setCustomId(`setup:set:leagues:${offset}`)
+        .setPlaceholder('Sélectionne les ligues à suivre (multi)')
         .setMinValues(0)
-        .setMaxValues(Math.max(1, quick.length || 3))
-        .addOptions(
-            quick.length
-                ? quick
-                : [{ label: 'Aucune ligue préconfigurée', value: '0', description: 'Tu peux saisir des IDs via le bouton ci-dessous', default: false }],
-        );
+        .setMaxValues(Math.min(options.length, 25))
+        .addOptions(options);
 
-    const rowMenu = new ActionRowBuilder().addComponents(menu);
-
-    const rowBtns = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`${CMD}:modal:leagues`).setLabel('Saisir des IDs manuellement').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`${CMD}:back`).setLabel('↩️ Retour').setStyle(ButtonStyle.Secondary),
+    const rowSelect = new ActionRowBuilder().addComponents(select);
+    const rowNav = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`setup:leagues:prev:${offset}`).setLabel('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(offset<=0),
+        new ButtonBuilder().setCustomId(`setup:leagues:next:${offset}`).setLabel('➡️').setStyle(ButtonStyle.Secondary).setDisabled(options.length < pageSize),
+        new ButtonBuilder().setCustomId(`setup:leagues:clear`).setLabel('Tout vider').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`setup:back`).setLabel('↩️ Retour').setStyle(ButtonStyle.Secondary),
     );
-    return [rowMenu, rowBtns];
+
+    return [rowSelect, rowNav];
 }
 
 function buildTimezoneRows() {
@@ -112,7 +112,6 @@ function buildChannelRows() {
     return [rowChan, rowBack];
 }
 
-// ---- modals ----
 function buildLeaguesModal() {
     const modal = new ModalBuilder()
         .setCustomId(`${CMD}:modal:leagues:submit`)
@@ -137,7 +136,6 @@ function buildTzModal() {
     return modal.addComponents(new ActionRowBuilder().addComponents(input));
 }
 
-// ---- parser ligues ----
 function parseLeagueIdsFromStrings(values) {
     return values
         .map(v => String(v).trim())
@@ -171,7 +169,7 @@ export default class SetupCommand extends Command {
         await ensureGuildSettings(interaction.guildId, { timezone: 'Europe/Paris', leagues: [] });
         const gs = await getGuildSettings(interaction.guildId);
 
-        const embed = buildMainEmbed(gs);
+        const embed = await buildMainEmbed(gs);
         const rows = buildMainRows();
 
         await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
@@ -189,7 +187,7 @@ export default class SetupCommand extends Command {
 
         if (kind === 'back') {
             const gs = await getGuildSettings(guildId);
-            await interaction.update({ embeds: [buildMainEmbed(gs)], components: buildMainRows() });
+            await interaction.update({ embeds: [await buildMainEmbed(gs)], components: buildMainRows() });
             return;
         }
 
@@ -197,29 +195,30 @@ export default class SetupCommand extends Command {
             await interaction.deferUpdate();
             if (sub === 'leagues') {
                 const gs = await getGuildSettings(guildId);
-                const embed = buildMainEmbed(gs);
-                await interaction.editReply({ embeds: [embed], components: buildLeaguesRow(gs) });
+                const embed = await buildMainEmbed(gs);
+                await interaction.editReply({ embeds: [embed], components: await buildLeaguesRows(gs) });
                 return;
             }
             if (sub === 'tz') {
                 const gs = await getGuildSettings(guildId);
-                const embed = buildMainEmbed(gs);
+                const embed = await buildMainEmbed(gs);
                 await interaction.editReply({ embeds: [embed], components: buildTimezoneRows() });
                 return;
             }
             if (sub === 'channel') {
                 const gs = await getGuildSettings(guildId);
-                const embed = buildMainEmbed(gs);
+                const embed = await buildMainEmbed(gs);
                 await interaction.editReply({ embeds: [embed], components: buildChannelRows() });
                 return;
             }
         }
 
         if (kind === 'set' && sub === 'leagues' && interaction.isStringSelectMenu()) {
-            const ids = parseLeagueIdsFromStrings(interaction.values);
-            await setGuildLeagues(guildId, ids);
+            const offset = Number(rest[0]) || 0;
+            const selected = interaction.values.map(v => Number(v)).filter(Number.isFinite);
+            await setGuildLeagues(guildId, selected);
             const gs = await getGuildSettings(guildId);
-            await interaction.update({ embeds: [buildMainEmbed(gs)], components: buildLeaguesRow(gs) });
+            await interaction.update({ embeds: [await buildMainEmbed(gs)], components: await buildLeaguesRows(gs, offset) });
             return;
         }
 
@@ -227,7 +226,7 @@ export default class SetupCommand extends Command {
             const tz = interaction.values[0];
             await setGuildTimezone(guildId, tz);
             const gs = await getGuildSettings(guildId);
-            await interaction.update({ embeds: [buildMainEmbed(gs)], components: buildTimezoneRows() });
+            await interaction.update({ embeds: [await buildMainEmbed(gs)], components: buildTimezoneRows() });
             return;
         }
 
@@ -277,7 +276,7 @@ export default class SetupCommand extends Command {
             }
 
             await interaction.editReply({
-                embeds: [buildMainEmbed(gs)],
+                embeds: [await buildMainEmbed(gs)],
                 components: buildChannelRows()
             });
             return;
@@ -288,6 +287,29 @@ export default class SetupCommand extends Command {
         }
         if (kind === 'modal' && sub === 'tz') {
             return interaction.showModal(buildTzModal());
+        }
+
+        if(kind === "leagues"){
+            if(sub === 'prev' || sub === 'next'){
+                await interaction.deferUpdate();
+
+                const prev = Number(rest[0]) || 0;
+                const pageSize = 25;
+
+                const next = sub === 'next' ? prev + pageSize : Math.max(0, prev - pageSize);
+
+                const gs = await getGuildSettings(guildId);
+                return interaction.editReply({ components: await buildLeaguesRows(gs, next) });
+
+            }
+
+            if (sub === 'clear') {
+                await setGuildLeagues(guildId, []);
+
+                const gs = await getGuildSettings(guildId);
+                return interaction.update({ embeds: [await buildMainEmbed(gs)], components: await buildLeaguesRows(gs, 0) });
+            }
+
         }
     }
 
@@ -306,7 +328,7 @@ export default class SetupCommand extends Command {
             const ids = parseLeagueIdsFromStrings(raw.split(','));
             await setGuildLeagues(guildId, ids);
             const gs = await getGuildSettings(guildId);
-            await interaction.reply({ embeds: [buildMainEmbed(gs)], components: buildLeaguesRow(gs), ephemeral: true });
+            await interaction.reply({ embeds: [await buildMainEmbed(gs)], components: buildLeaguesRow(gs), ephemeral: true });
             return;
         }
 
@@ -315,7 +337,7 @@ export default class SetupCommand extends Command {
             if (!tz) return interaction.reply({ content: '❌ Fuseau invalide.', ephemeral: true });
             await setGuildTimezone(guildId, tz);
             const gs = await getGuildSettings(guildId);
-            await interaction.reply({ embeds: [buildMainEmbed(gs)], components: buildTimezoneRows(), ephemeral: true });
+            await interaction.reply({ embeds: [await buildMainEmbed(gs)], components: buildTimezoneRows(), ephemeral: true });
             return;
         }
     }

@@ -1,7 +1,6 @@
 import { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 export function buildMatchSelect({ cmdName = 'matchs', matches, offset = 0, total }) {
-    // window de 25
     const windowSize = 25;
     const slice = matches.slice(offset, offset + windowSize);
 

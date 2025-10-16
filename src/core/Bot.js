@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits, InteractionType, Events } from 'discord.js';
-import { loadCommands } from './loader.js';
+import { loadCommands } from './commands/loader.js';
 
 export class Bot {
     #client;

@@ -16,6 +16,6 @@ export class ICache {
     /** @param {string} key */
     delete(key) { throw new Error('not impl'); }
     clear() { throw new Error('not impl'); }
-    connect() {}        // optionnel (Redis)
-    disconnect() {}     // optionnel (Redis)
+    connect() {}
+    disconnect() {}
 }

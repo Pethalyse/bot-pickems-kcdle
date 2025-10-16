@@ -1,10 +1,10 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getGuildSettings } from '../db/guildSettings.js';
-import { matchesRepo } from '../db/matchesRepo.js';
-import { matchEmbed } from '../ui/embeds.js';
-import { voteButtons } from '../ui/voteComponents.js';
-import { buildMatchSelect } from '../ui/matchPicker.js';
-import {Command} from "../core/Command.js";
+import { getGuildSettings } from '../../../db/guildSettings.js';
+import { matchesRepo } from '../../../db/matchesRepo.js';
+import { matchEmbed } from '../../../ui/embeds.js';
+import { voteButtons } from '../../../ui/voteComponents.js';
+import { buildMatchSelect } from '../../../ui/matchPicker.js';
+import {Command} from "../Command.js";
 
 export default class MatchsCommand extends Command {
     constructor() {

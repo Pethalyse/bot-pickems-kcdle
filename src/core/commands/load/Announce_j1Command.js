@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChannelType } from 'discord.js';
-import { getGuildSettings } from '../db/guildSettings.js';
-import { matchesRepo } from '../db/matchesRepo.js';
-import {Command} from "../core/Command.js";
+import { getGuildSettings } from '../../../db/guildSettings.js';
+import { matchesRepo } from '../../../db/matchesRepo.js';
+import {Command} from "../Command.js";
 
 function fmtLine(m) {
     const ts = m.scheduled_at ? `<t:${Math.floor(new Date(m.scheduled_at).getTime()/1000)}:t>` : '';

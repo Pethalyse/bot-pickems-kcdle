@@ -1,9 +1,9 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
-import { getGuildSettings } from '../db/guildSettings.js';
-import { matchesRepo } from '../db/matchesRepo.js';
-import { matchEmbed } from '../ui/embeds.js';
-import { voteButtons } from '../ui/voteComponents.js';
-import {Command} from "../core/Command.js";
+import { getGuildSettings } from '../../../db/guildSettings.js';
+import { matchesRepo } from '../../../db/matchesRepo.js';
+import { matchEmbed } from '../../../ui/embeds.js';
+import { voteButtons } from '../../../ui/voteComponents.js';
+import {Command} from "../Command.js";
 
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
