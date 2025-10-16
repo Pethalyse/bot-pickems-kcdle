@@ -28,26 +28,24 @@ export class Bot {
     #wireInteractions() {
         this.#client.on(Events.InteractionCreate, async (interaction) => {
             try {
-                // Slash command
+
                 if (interaction.isChatInputCommand()) {
                     const cmd = this.#commands.get(interaction.commandName);
                     if (!cmd) return;
                     return await cmd.execute(interaction, this.#ctx);
                 }
-                // Autocomplete
+
                 if (interaction.isAutocomplete()) {
                     const cmd = this.#commands.get(interaction.commandName);
                     if (!cmd?.onAutocomplete) return;
                     return await cmd.onAutocomplete(interaction, this.#ctx);
                 }
-                // Bouton / Select / Modal
+
                 if (
                     interaction.isButton() ||
                     interaction.isStringSelectMenu() ||
-                    interaction.isChannelSelectMenu() ||
-                    interaction.type === InteractionType.ModalSubmit
+                    interaction.isChannelSelectMenu()
                 ) {
-                    // convention: customId "cmd:action:payload"
                     const [name] = interaction.customId.split(':');
                     const cmd = this.#commands.get(name);
                     if (!cmd?.onComponent) return;
@@ -57,7 +55,7 @@ export class Bot {
                 if (interaction.isModalSubmit()) {
                     const [name] = interaction.customId.split(':');
                     const cmd = this.#commands.get(name);
-                    if (cmd?.onModalSubmit) return await cmd.onModalSubmit(interaction, this.#ctx);
+                    return await cmd.onModalSubmit(interaction, this.#ctx);
                 }
             } catch (e) {
                 console.error(e);

@@ -42,7 +42,7 @@ export default class VotesCommand extends Command {
 
         const within = interaction.options.getInteger('within_hours') ?? 24;
         const limitReq = interaction.options.getInteger('limit') ?? 10;
-        const limit = Math.max(1, Math.min(25, limitReq)); // hard cap 25 pour éviter le flood
+        const limit = Math.max(1, Math.min(25, limitReq));
 
         const now = new Date();
         const end = new Date(now.getTime() + within * 60 * 60 * 1000);
