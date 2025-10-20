@@ -64,7 +64,7 @@ export class LeaderboardRouter extends Router{
     }
 
     async #createLeaderboard(interaction) {
-        await interaction.editReply(
+        await interaction.followUp(
             await this.leaderboardUI.build(
                 interaction,
                 await this.leaderboardService.global(interaction.guildId)
