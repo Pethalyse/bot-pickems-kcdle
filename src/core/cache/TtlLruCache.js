@@ -2,8 +2,7 @@ import {ICache} from "./ICache.js";
 
 export class TtlLruCache extends ICache{
     constructor({ defaultTtlMs = 60_000, maxSize = 500 } = {}) {
-        super();
-        this.defaultTtlMs = defaultTtlMs;
+        super(defaultTtlMs);
         this.maxSize = maxSize;
         this.map = new Map();
     }

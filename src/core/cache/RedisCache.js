@@ -9,8 +9,7 @@ export class RedisCache extends ICache {
      * @param {string} [opts.namespace='pickems'] - préfixe des clés
      */
     constructor({ url, defaultTtlMs = 60_000, namespace = 'pickems' }) {
-        super();
-        this.defaultTtlMs = defaultTtlMs;
+        super(defaultTtlMs);
         this.ns = namespace;
         this.redis = new IORedis(url, {
             lazyConnect: true,

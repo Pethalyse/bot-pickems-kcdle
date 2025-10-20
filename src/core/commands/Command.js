@@ -1,18 +1,15 @@
 /**
  * Contrat minimal pour toutes les commandes
- * @property {data} SlashCommandBuilder
- * @property {name} String
+ * @property {Router} router
  */
 export class Command {
-    data;
-    name;
-    constructor() {
-    }
-
-    async execute(/* interaction, ctx */) {
-        throw new Error('execute() not implemented');
-    }
-
-    async onAutocomplete(/* interaction, ctx */) {}
-    async onComponent(/* interaction, ctx */) {}
+    router;
+    constructor(){}
+    get data() {}
+    get name() {}
+    async execute(interaction) { await this.router.handleSlash(interaction);}
+    async onButton(interaction) { await this.router.handleButton(interaction); }
+    async onStringSelect(interaction) { await this.router.handleStringSelect(interaction); }
+    async onChannelSelect(interaction) { await this.router.handleChannelSelect(interaction); }
+    async onModalSubmit(interaction) { await this.router.handleModal(interaction); }
 }

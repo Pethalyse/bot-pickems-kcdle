@@ -61,3 +61,14 @@ export async function getAllGuildSettingsWithChannel() {
     );
     return rows;
 }
+
+export async function setGuildVoteTime(guildId, hour, minute = 0) {
+    const { rows } = await pool.query(
+        `UPDATE guild_settings
+       SET vote_hour = $2, vote_minute = $3
+     WHERE guild_id = $1
+     RETURNING guild_id, vote_channel_id, timezone, leagues, vote_hour, vote_minute`,
+        [guildId, hour, minute]
+    );
+    return rows[0];
+}

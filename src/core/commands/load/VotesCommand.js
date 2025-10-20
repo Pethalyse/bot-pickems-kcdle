@@ -1,66 +1,41 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
-import { getGuildSettings } from '../../../db/guildSettings.js';
-import { matchesRepo } from '../../../db/matchesRepo.js';
-import { matchEmbed } from '../../../ui/embeds.js';
-import { voteButtons } from '../../../ui/voteComponents.js';
+import {SlashCommandBuilder, PermissionFlagsBits, ChannelType} from 'discord.js';
 import {Command} from "../Command.js";
+import {VotesRouter} from "../router/VotesRouter.js";
+import {GuildSettingsService} from "../../../services/GuildSettingsService.js";
+import {MatchesService} from "../../../services/MatchesService.js";
+import {VoteUI} from "../../../ui/VoteUI.js";
+import {PermissionGuard} from "../../../utils/PermissionGuard.js";
 
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 export default class VotesCommand extends Command {
-    constructor() {
+    constructor(deps) {
         super();
-        this.data = new SlashCommandBuilder()
+        this.router = new VotesRouter(
+            new GuildSettingsService(),
+            new MatchesService(),
+            new VoteUI(this.name),
+            new PermissionGuard(),
+            deps?.logger,
+            deps?.cache,
+            null
+        );
+    }
+
+    get data() {
+        return new SlashCommandBuilder()
             .setName('votes')
-            .setDescription('Publie des messages de vote pour les matchs à venir (non ephemeral)')
-            .addIntegerOption(o =>
-                o.setName('within_hours')
-                    .setDescription('Fenêtre des prochaines X heures (défaut 24)')
-            )
-            .addIntegerOption(o =>
-                o.setName('limit')
-                    .setDescription('Nombre max de matchs à publier (défaut 10, max 25)')
-            );
-        this.name = this.data.name;
+            .setDescription("Publie des messages de vote pour les matchs à venir")
+            .addIntegerOption(o => o
+                .setName('within_hours')
+                .setDescription('Fenêtre de publication (heures à venir), défaut 24')
+                .setMinValue(1).setMaxValue(168))
+            .addChannelOption(o => o
+                .setName('channel')
+                .setDescription("Salon cible (sinon, salon configuré ou salon courant)")
+                .addChannelTypes(ChannelType.GuildText))
+            .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
     }
-
-    async execute(interaction/*, ctx */) {
-        const guildId = interaction.guildId;
-        const channel = interaction.channel;
-
-        const me = interaction.guild.members.me;
-        const perms = channel.permissionsFor(me);
-        if (!perms?.has(PermissionFlagsBits.SendMessages)) {
-            return interaction.reply({ content: "⛔ Je n'ai pas la permission d'écrire ici.", ephemeral: true });
-        }
-
-        const gs = await getGuildSettings(guildId);
-        if (!gs?.leagues?.length) {
-            return interaction.reply({ content: "⚙️ Configure d’abord `/setup leagues`.", ephemeral: true });
-        }
-
-        const within = interaction.options.getInteger('within_hours') ?? 24;
-        const limitReq = interaction.options.getInteger('limit') ?? 10;
-        const limit = Math.max(1, Math.min(25, limitReq));
-
-        const now = new Date();
-        const end = new Date(now.getTime() + within * 60 * 60 * 1000);
-
-        const matches = await matchesRepo.upcomingWindow(gs.leagues, now.toISOString(), end.toISOString(), limit);
-
-        if (!matches.length) {
-            return interaction.reply({ content: `📭 Aucun match dans les ${within} prochaines heures.`, ephemeral: true });
-        }
-
-        await interaction.reply({ content: `🛈 Publication de ${matches.length} message(s) de vote…`, ephemeral: true });
-
-        for (let i = 0; i < matches.length; i++) {
-            const m = matches[i];
-            const embed = matchEmbed(m);
-            const components = [voteButtons(m)];
-            await channel.send({ embeds: [embed], components });
-            await sleep(350);
-        }
-    }
+    get name() { return "votes"; }
 }
