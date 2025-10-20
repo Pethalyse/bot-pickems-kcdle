@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, InteractionType, Events } from 'discord.js';
-import { loadCommands } from './loader.js';
+import { loadCommands } from './commands/loader.js';
+import {CustomId} from "../utils/CustomId.js";
 
 export class Bot {
     #client;
@@ -15,7 +16,12 @@ export class Bot {
     get client() { return this.#client; }
 
     async start(token) {
-        this.#commands = await loadCommands();
+        this.#commands =
+            await loadCommands({
+                client: this.#client,
+                logger: this.#ctx.logger,
+                cache: this.#ctx.cache
+            });
         this.#wireInteractions();
         await this.#client.login(token);
         this.#ctx.logger?.info?.('✅ Bot logged in');
@@ -28,37 +34,44 @@ export class Bot {
     #wireInteractions() {
         this.#client.on(Events.InteractionCreate, async (interaction) => {
             try {
-                // Slash command
+
                 if (interaction.isChatInputCommand()) {
                     const cmd = this.#commands.get(interaction.commandName);
                     if (!cmd) return;
-                    return await cmd.execute(interaction, this.#ctx);
+                    return await cmd.execute(interaction);
                 }
-                // Autocomplete
-                if (interaction.isAutocomplete()) {
-                    const cmd = this.#commands.get(interaction.commandName);
-                    if (!cmd?.onAutocomplete) return;
-                    return await cmd.onAutocomplete(interaction, this.#ctx);
-                }
-                // Bouton / Select / Modal
-                if (
-                    interaction.isButton() ||
-                    interaction.isStringSelectMenu() ||
-                    interaction.isChannelSelectMenu() ||
-                    interaction.type === InteractionType.ModalSubmit
-                ) {
-                    // convention: customId "cmd:action:payload"
+
+                if(CustomId.parse(interaction.customId).params.update)
+                    await interaction.deferUpdate();
+
+                if (interaction.isButton()) {
                     const [name] = interaction.customId.split(':');
                     const cmd = this.#commands.get(name);
-                    if (!cmd?.onComponent) return;
-                    return await cmd.onComponent(interaction, this.#ctx);
+                    if (!cmd?.onButton) return;
+                    return await cmd.onButton(interaction);
+                }
+
+                if (interaction.isStringSelectMenu()) {
+                    const [name] = interaction.customId.split(':');
+                    const cmd = this.#commands.get(name);
+                    if (!cmd?.onStringSelect) return;
+                    return await cmd.onStringSelect(interaction);
+                }
+
+                if (interaction.isChannelSelectMenu()) {
+                    const [name] = interaction.customId.split(':');
+                    const cmd = this.#commands.get(name);
+                    if (!cmd?.onChannelSelect) return;
+                    return await cmd.onChannelSelect(interaction);
                 }
 
                 if (interaction.isModalSubmit()) {
                     const [name] = interaction.customId.split(':');
                     const cmd = this.#commands.get(name);
-                    if (cmd?.onModalSubmit) return await cmd.onModalSubmit(interaction, this.#ctx);
+                    if (!cmd?.onModalSubmit) return;
+                    return await cmd.onModalSubmit(interaction);
                 }
+
             } catch (e) {
                 console.error(e);
                 const reply = { content: '❌ Erreur interne.', ephemeral: true };

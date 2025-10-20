@@ -11,15 +11,14 @@ export const matchesRepo = {
         return rows;
     },
 
-    async upcomingWindow(leagueIds, startIso, endIso, limit = 100) {
+    async upcomingWindow(leagueIds, startIso, endIso) {
         const { rows } = await pool.query(
             `SELECT * FROM v_matches_pickems
              WHERE league_id = ANY($1)
                AND status IN ('not_started','pending')
                AND scheduled_at >= $2 AND scheduled_at < $3
-             ORDER BY scheduled_at ASC
-             LIMIT $4`,
-            [leagueIds, startIso, endIso, limit]
+             ORDER BY scheduled_at`,
+            [leagueIds, startIso, endIso]
         );
         return rows;
     },

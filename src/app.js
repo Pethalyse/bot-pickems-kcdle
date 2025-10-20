@@ -2,8 +2,10 @@ import 'dotenv/config';
 import pool from './db/pool.js';
 import { Bot } from './core/Bot.js';
 import { publishGlobalCommands } from './infra/discord/registry.js';
-import { createCacheFromEnv } from './core/cacheFactory.js';
-import {scheduleDailyVotes} from "./scheduler/dailyVotes.js";
+import { createCacheFromEnv } from './core/cache/cacheFactory.js';
+import {MatchesService} from "./services/MatchesService.js";
+import {VoteUI} from "./ui/VoteUI.js";
+import DailyVotes from "./scheduler/DailyVotes.js";
 
 const logger = console;
 const cache = await createCacheFromEnv();
@@ -19,9 +21,10 @@ await publishGlobalCommands({
     bot
 });
 
-await scheduleDailyVotes(ctx.bot, { logger: console });
+await new DailyVotes(new MatchesService(), new VoteUI("vote"), bot.client.guilds, logger)
+    .scheduleDailyVotes();
 
-// ---- graceful shutdown ----
+
 async function shutdown(sig) {
     try {
         logger.info(`[${sig}] shutting down...`);

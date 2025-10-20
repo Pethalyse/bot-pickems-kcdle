@@ -1,39 +1,53 @@
 import pool from './pool.js';
 
 export const leaderboardRepo = {
-    async global(guildId, limit = 15) {
-        const { rows } = await pool.query(
-            `SELECT lb.user_id, lb.points, gp.display_name
-             FROM v_lb_global lb
-                      LEFT JOIN guild_players gp ON gp.guild_id = lb.guild_id AND gp.user_id = lb.user_id
-             WHERE lb.guild_id = $1
-             ORDER BY lb.points DESC, lb.last_update ASC
-             LIMIT $2`, [guildId, limit]
-        );
+    async global(guild_id){
+        const { rows } = await pool.query(`
+            SELECT *
+            FROM v_pickems_leaderboard
+            WHERE guild_id = $1 
+                AND scope = 'global'
+            ORDER BY success_rate DESC, total_predictions DESC;`,
+            [guild_id]);
         return rows;
     },
 
-    async bySeries(guildId, seriesId, limit = 15) {
-        const { rows } = await pool.query(
-            `SELECT lb.user_id, lb.points, gp.display_name
-             FROM v_lb_series lb
-                      LEFT JOIN guild_players gp ON gp.guild_id = lb.guild_id AND gp.user_id = lb.user_id
-             WHERE lb.guild_id = $1 AND lb.series_id = $2
-             ORDER BY lb.points DESC, lb.last_update ASC
-             LIMIT $3`, [guildId, seriesId, limit]
-        );
+    async league(guild_id, league_id){
+        const { rows } = await pool.query(`
+            SELECT *
+            FROM v_pickems_leaderboard
+            WHERE guild_id = $1
+                AND league_id = $3
+                AND scope = 'league'
+            ORDER BY success_rate DESC, total_predictions DESC`,
+            [guild_id, league_id]);
         return rows;
     },
 
-    async byLeagueYear(guildId, leagueId, year, limit = 15) {
-        const { rows } = await pool.query(
-            `SELECT lb.user_id, lb.points, gp.display_name
-             FROM v_lb_league_year lb
-                      LEFT JOIN guild_players gp ON gp.guild_id = lb.guild_id AND gp.user_id = lb.user_id
-             WHERE lb.guild_id = $1 AND lb.league_id = $2 AND lb.year = $3
-             ORDER BY lb.points DESC, lb.last_update ASC
-             LIMIT $4`, [guildId, leagueId, year, limit]
-        );
+    async series(guild_id, league_id, series_id){
+        const { rows } = await pool.query(`
+            SELECT *
+            FROM v_pickems_leaderboard
+            WHERE guild_id = $1 
+                AND league_id = $3
+                AND series_id = $4 
+                AND scope = 'series'
+            ORDER BY success_rate DESC, total_predictions DESC;`,
+            [guild_id, league_id, series_id]);
         return rows;
-    }
+    },
+
+    async tournament(guild_id, league_id, series_id, tournament_id){
+        const { rows } = await pool.query(`
+            SELECT *
+            FROM v_pickems_leaderboard
+            WHERE guild_id = $1
+                AND league_id = $3
+                AND series_id = $4
+                AND tournament_id = $5
+                AND scope = 'tournament'
+            ORDER BY success_rate DESC, total_predictions DESC;`,
+            [guild_id, league_id, series_id, tournament_id]);
+        return rows;
+    },
 };
