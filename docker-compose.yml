@@ -17,6 +17,7 @@ services:
       retries: 10
 
   bot:
+    image: ghcr.io/pethalyse/bot-pickems-kcdle:latest
     build: .
     restart: unless-stopped
     env_file: .env
@@ -24,6 +25,8 @@ services:
       db:
         condition: service_healthy
     command: ["node", "src/app.js"]
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
 
   ingestor:
     build: .
@@ -58,6 +61,13 @@ services:
       - ./db/migrate.sh:/migrate.sh:ro
       - ./db/backups:/backups:ro
     entrypoint: [ "bash", "/migrate.sh" ]
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30 --cleanup --label-enable
+    restart: unless-stopped
 
 volumes:
   pgdata:
