@@ -66,7 +66,7 @@ services:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30 --cleanup --label-enable
+    command: --interval 30 --cleanup --label-enable --registry-auth
     restart: unless-stopped
 
 volumes:
