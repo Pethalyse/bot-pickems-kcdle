@@ -6,44 +6,46 @@ import {chunkButtons, numEmoji} from "../utils/uiHelpers.js";
 /**
  * UI class to show the leaderboard
  */
-export class LeaderboardUI extends UI{
+export class LeaderboardUI extends UI {
 
-    /**
-     * @param interaction
-     * @param datas
-     * @returns {Promise<{embeds, components: []}>}
-     */
     build(interaction, datas) {
-        const embed = new EmbedBuilder()
-            .setTitle(`🏆 Classement de ${interaction.guild.name}`)
-            .setDescription("-- TODO --")
-            .setColor(0x3498db);
-
         const lines = datas.map(async (data, i) => {
-            const member = await interaction.guild.members.fetch(data.user_id);
             const rank = i + 1;
             const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-            const avatar = member.user.displayAvatarURL({dynamic: true});
-            const name = `${member.user.globalName}`;
-            const pourcentage = data.success_rate ?? 0;
+            const rate = Number(data.success_rate ?? 0).toFixed(2);
 
-            return new EmbedBuilder()
-                .setAuthor({
-                    name: `${medal} ${name}`,
-                    iconURL: avatar ?? undefined,
-                })
-                .setDescription(
-                    `**Taux de réussite :** ${pourcentage}%\n` +
-                    `**Pronostics corrects :** ${data.correct_predictions} / ${data.total_predictions}`
-                )
-                .setThumbnail(avatar ?? undefined)
-                .setColor(0x5865F2);
+            let member = null;
+            let user;
+            try {
+                member = await interaction.guild.members.fetch(data.user_id);
+                user = member.user;
+            } catch {
+                user = await interaction.client.users.fetch(data.user_id).catch(() => null);
+            }
+
+            const name =
+                member?.displayName ??
+                user?.globalName ??
+                user?.username ??
+                `User ${data.user_id}`;
+
+            return `${medal} **${name}** — ${rate}% (${data.correct_predictions}/${data.total_predictions})`;
         });
 
-        return Promise.all(lines).then(lines => {
-            return { embeds: [embed, ...lines], components : [] };
-        })
+        return Promise.all(lines).then((resolvedLines) => {
+            const embed = new EmbedBuilder()
+                .setAuthor({
+                    name: `Classement de ${interaction.guild.name}`,
+                    iconURL: interaction.guild.iconURL({ dynamic: true }) ?? undefined
+                })
+                .setDescription(`${resolvedLines.join('\n')}`)
+                .setColor(0x3498db)
+                .setFooter({ text: `Total joueurs : ${datas.length}` });
+
+            return { embeds: [embed], components: [] };
+        });
     }
+
 
     /**
      * @return {{embeds: EmbedBuilder[], components: []}}
@@ -63,7 +65,7 @@ export class LeaderboardUI extends UI{
 
         const options = pageData.items.map((l, i) =>
             new ButtonBuilder()
-                .setCustomId(CustomId.make(this.ns,'leaderboard:leagues:select', { leagueId: l.id}))
+                .setCustomId(CustomId.make(this.ns,'leaderboard:leagues:select', { leagueId: l.id }))
                 .setLabel(String(i + 1))
                 .setStyle(ButtonStyle.Secondary)
         );
