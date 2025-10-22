@@ -8,7 +8,7 @@ import {chunkButtons, numEmoji} from "../utils/uiHelpers.js";
  */
 export class LeaderboardUI extends UI {
 
-    build(interaction, datas) {
+    build(interaction, datas, leagueName = "", seriesName = "", tournamentName = "") {
         const lines = datas.map(async (data, i) => {
             const rank = i + 1;
             const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
@@ -41,16 +41,12 @@ export class LeaderboardUI extends UI {
                     name: `Classement de ${interaction.guild.name}`,
                     iconURL: interaction.guild.iconURL({ dynamic: true }) ?? undefined
                 })
-                .setDescription(`${resolvedLines.length >= 1 ? "Description"
+                .setDescription(`${resolvedLines.length >= 1 ? 
+                    `${leagueName} ${seriesName} ${tournamentName}`
                     : "**Aucun classement actuellemment pour cette configuration**"}`)
                 .setColor(0x3498db)
                 .setFooter({ text: `Total joueurs : ${datas.length}` })
                 .addFields(resolvedLines);
-            // embed.addFields(
-            //     // {name: 'Fuseau horaire', value: gs.timezone ?? '_non défini_'},
-            //     {name: 'Ligues suivies', value: gs.leagues?.length ? String(gs.leagues.length) : '_0_'},
-            //     {name: 'Salon des votes', value: gs.vote_channel_id ? `<#${gs.vote_channel_id}>` : '_non défini_'},
-            // );
 
             return { embeds: [embed], components: [] };
         });

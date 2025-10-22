@@ -79,7 +79,6 @@ export class LeaderboardRouter extends Router{
         );
 
         const league = await this.leagueService.get(action.params.leagueId);
-        console.log(league);
         pageData.items.unshift(
             {league_id : action.params.leagueId, id: -1, full_name : "**Global**"}
         );
@@ -121,10 +120,32 @@ export class LeaderboardRouter extends Router{
             action.params.leagueId !== "-1" ?
                 action.params.seriesId !== "-1" ?
                     action.params.tournamentId !== "-1" ?
-                        await this.leaderboardUI.build(interaction, await this.leaderboardService.tournament(interaction.guildId, action.params.leagueId, action.params.seriesId , action.params.tournamentId))
-                    : await this.leaderboardUI.build(interaction, await this.leaderboardService.series(interaction.guildId, action.params.leagueId, action.params.seriesId))
-                :  await this.leaderboardUI.build(interaction, await this.leaderboardService.league(interaction.guildId,  action.params.leagueId))
-            :  await this.leaderboardUI.build(interaction, await this.leaderboardService.global(interaction.guildId))
+                        await this.leaderboardUI.build(interaction,
+                            await this.leaderboardService
+                                .tournament(
+                                    interaction.guildId,
+                                    action.params.leagueId,
+                                    action.params.seriesId ,
+                                    action.params.tournamentId
+                                ),
+                            league.name, series.full_name, tournament.name,
+                        )
+                    : await this.leaderboardUI.build(interaction,
+                            await this.leaderboardService.series(
+                                interaction.guildId,
+                                action.params.leagueId,
+                                action.params.seriesId
+                            ),
+                            league.name, series.full_name,
+                    )
+                :  await this.leaderboardUI.build(interaction,
+                        await this.leaderboardService.league(
+                            interaction.guildId,
+                            action.params.leagueId
+                        ),
+                        league.name,
+                )
+            :  await this.leaderboardUI.build(interaction,await this.leaderboardService.global(interaction.guildId))
 
         await interaction.followUp(ui);
     }
