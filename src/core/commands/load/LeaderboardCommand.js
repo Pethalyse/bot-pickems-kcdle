@@ -5,6 +5,8 @@ import {PermissionFlagsBits, SlashCommandBuilder} from "discord.js";
 import {Command} from "../Command.js";
 import {LeagueService} from "../../../services/LeagueService.js";
 import {GuildSettingsService} from "../../../services/GuildSettingsService.js";
+import {SeriesService} from "../../../services/SeriesService.js";
+import {TournamentService} from "../../../services/TournamentService.js";
 
 export default class LeaderboardCommand extends Command {
     constructor(deps) {
@@ -12,6 +14,8 @@ export default class LeaderboardCommand extends Command {
         this.router = new LeaderboardRouter(
             new LeaderboardService(),
             new LeagueService(),
+            new SeriesService(),
+            new TournamentService(),
             new GuildSettingsService(),
             new LeaderboardUI(this.name),
             deps?.logger,

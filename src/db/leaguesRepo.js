@@ -45,5 +45,12 @@ export const leaguesRepo = {
             `SELECT id, name, slug FROM leagues WHERE id = ANY($1) ORDER BY name ASC`, [ids]
         );
         return rows;
+    },
+
+    async get(league_id) {
+        const { rows } = await pool.query(
+            `SELECT * FROM leagues WHERE id = $1`, [league_id]
+        );
+        return rows[0];
     }
 };

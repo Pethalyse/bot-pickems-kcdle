@@ -26,11 +26,11 @@ export class VoteUI extends UI {
         const components = [
             new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId(CustomId.make(this.ns, 'vote:vote', {"match" : match.id, "vote" : match.team1_id}))
+                    .setCustomId(CustomId.make(this.ns, 'votes:vote', {"match" : match.id, "vote" : match.team1_id}))
                     .setLabel(`${match.team1_acronym ?? match.team1_name ?? 'Equipe 1'}`)
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
-                    .setCustomId(CustomId.make(this.ns, 'vote:vote', {"match" : match.id, "vote" : match.team2_id}))
+                    .setCustomId(CustomId.make(this.ns, 'votes:vote', {"match" : match.id, "vote" : match.team2_id}))
                     .setLabel(`${match.team2_acronym ?? match.team2_name ?? 'Equipe 2'}`)
                     .setStyle(ButtonStyle.Danger)
             )

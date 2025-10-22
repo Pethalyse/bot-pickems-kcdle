@@ -17,7 +17,7 @@ export const leaderboardRepo = {
             SELECT *
             FROM v_pickems_leaderboard
             WHERE guild_id = $1
-                AND league_id = $3
+                AND league_id = $2
                 AND scope = 'league'
             ORDER BY success_rate DESC, total_predictions DESC`,
             [guild_id, league_id]);
@@ -29,8 +29,8 @@ export const leaderboardRepo = {
             SELECT *
             FROM v_pickems_leaderboard
             WHERE guild_id = $1 
-                AND league_id = $3
-                AND series_id = $4 
+                AND league_id = $2
+                AND series_id = $3 
                 AND scope = 'series'
             ORDER BY success_rate DESC, total_predictions DESC;`,
             [guild_id, league_id, series_id]);
@@ -42,9 +42,9 @@ export const leaderboardRepo = {
             SELECT *
             FROM v_pickems_leaderboard
             WHERE guild_id = $1
-                AND league_id = $3
-                AND series_id = $4
-                AND tournament_id = $5
+                AND league_id = $2
+                AND series_id = $3
+                AND tournament_id = $4
                 AND scope = 'tournament'
             ORDER BY success_rate DESC, total_predictions DESC;`,
             [guild_id, league_id, series_id, tournament_id]);

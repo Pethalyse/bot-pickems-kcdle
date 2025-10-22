@@ -5,6 +5,7 @@ import {GuildSettingsService} from "../../../services/GuildSettingsService.js";
 import {MatchesService} from "../../../services/MatchesService.js";
 import {VoteUI} from "../../../ui/VoteUI.js";
 import {PermissionGuard} from "../../../utils/PermissionGuard.js";
+import {PredictionService} from "../../../services/PredictionService.js";
 
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -14,6 +15,7 @@ export default class VotesCommand extends Command {
         super();
         this.router = new VotesRouter(
             new GuildSettingsService(),
+            new PredictionService(),
             new MatchesService(),
             new VoteUI(this.name),
             new PermissionGuard(),

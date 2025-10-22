@@ -40,4 +40,8 @@ export class LeagueService {
             items: slice,
         };
     }
+
+    async get(league_id){
+        return await leaguesRepo.get(league_id)
+    }
 }
