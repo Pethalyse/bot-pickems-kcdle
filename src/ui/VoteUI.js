@@ -39,5 +39,26 @@ export class VoteUI extends UI {
         return { embeds: [embed], components : components };
     }
 
+    predictMessage(result) {
+        if (!result.ok) {
+            const reasons = {
+                MATCH_NOT_FOUND: "❌ Match introuvable.",
+                MATCH_ALREADY_STARTED: "⛔ Le match a déjà démarré.",
+                AFTER_DEADLINE: "⛔ Les votes sont fermés pour ce match.",
+                INVALID_TEAM: "❌ Équipe invalide."
+            };
+            return {content: reasons[result.reason] || "❌ Vote impossible.", ephemeral: true };
+        }
+
+        const name = (result.teamId === parseInt(result.match.team1_id))
+            ? (result.match.team1_acronym ?? result.match.team1_name)
+            : (result.match.team2_acronym ?? result.match.team2_name);
+
+        let msg = result.changed
+            ? `📝 **Vote modifié** → ${name}`
+            : (result.previousChoice ? `✅ **Vote inchangé** → ${name}` : `🗳️ **Vote enregistré** → ${name}`);
+
+        return { content: msg, ephemeral: true };
+    }
 
 }

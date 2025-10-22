@@ -3,7 +3,7 @@ import {predictionsRepo} from "../db/predictionRepo.js";
 import {playersRepo} from "../db/playerRepo.js";
 
 export class PredictionService {
-    async cast(guildId, user, matchId, teamId) {
+    async predict(guildId, user, matchId, teamId) {
         const match = await matchesRepo.byId(matchId);
         if (!match) return { ok: false, reason: 'MATCH_NOT_FOUND' };
 

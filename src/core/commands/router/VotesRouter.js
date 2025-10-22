@@ -89,31 +89,13 @@ export class VotesRouter extends Router {
         const matchId = Number(id.params.match);
         const teamId = Number(id.params.vote);
 
-        const res = await this.predictionService.cast(
+        const result = await this.predictionService.predict(
             interaction.guildId,
             interaction.user,
             matchId,
             teamId
         );
 
-        if (!res.ok) {
-            const reasons = {
-                MATCH_NOT_FOUND: "❌ Match introuvable.",
-                MATCH_ALREADY_STARTED: "⛔ Le match a déjà démarré.",
-                AFTER_DEADLINE: "⛔ Les votes sont fermés pour ce match.",
-                INVALID_TEAM: "❌ Équipe invalide."
-            };
-            return interaction.followUp({ content: reasons[res.reason] || "❌ Vote impossible.", ephemeral: true });
-        }
-
-        const name = (teamId === parseInt(res.match.team1_id))
-            ? (res.match.team1_acronym ?? res.match.team1_name)
-            : (res.match.team2_acronym ?? res.match.team2_name);
-
-        let msg = res.changed
-            ? `📝 **Vote modifié** → ${name}`
-            : (res.previousChoice ? `✅ **Vote inchangé** → ${name}` : `🗳️ **Vote enregistré** → ${name}`);
-
-        return interaction.followUp({ content: msg, ephemeral: true });
+        return interaction.followUp(this.voteUI.predictMessage(result));
     }
 }
