@@ -14,14 +14,18 @@ export class VoteUI extends UI {
     build(match) {
         const embed =  new EmbedBuilder()
             .setTitle(`${match.team1_name ?? 'TBD'} vs ${match.team2_name ?? 'TBD'}`)
-            .setDescription([
-                `Ligue : **${match.league_name}**`,
-                match.tournament_name ? `Tournoi : ${match.tournament_name}` : null,
-                match.series_full_name ? `Série : ${match.series_full_name}` : null,
-                match.scheduled_at ? `Début : <t:${Math.floor(new Date(match.scheduled_at).getTime()/1000)}:f>` : null,
-                `Format : ${match.number_of_games ? `BO${match.number_of_games}` : (match.match_type || '—')}`
-            ].filter(Boolean).join('\n'))
-            .setThumbnail(match.team1_image_url || match.team2_image_url || null);
+            .addFields([
+                {name : "Ligue", value: match.league_name, inline: true},
+                match.series_full_name ? {name : "Série", value: match.series_full_name, inline: true} : null,
+                match.tournament_name ? {name : "Tournoi", value: match.tournament_name, inline: true} : null,
+            ])
+            .addFields([
+                {name : `Format`, value : match.number_of_games ? `BO${match.number_of_games}` : match.match_type || '—', inline: true},
+                match.scheduled_at ? {name : "Début", value : `<t:${Math.floor(new Date(match.scheduled_at).getTime() / 1000)}:f>`, inline: true} : null,
+                {name : "", value: "", inline: true},
+            ])
+            .addFields({name : "", value :`<t:${Math.floor(new Date(match.scheduled_at).getTime() / 1000)}:R>`})
+            .setThumbnail(match.league_image || match.team1_image_url || match.team2_image_url || null)
 
         const components = [
             new ActionRowBuilder().addComponents(
