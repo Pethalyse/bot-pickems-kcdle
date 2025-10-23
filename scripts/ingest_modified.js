@@ -25,7 +25,7 @@ export async function fetchModifiedSince(perPage = 100, maxPages = 50) {
                 if (!mod) continue;
                 if (mod > lastSeen) {
                     anyNewerOnPage = true;
-                    if (mod > maxSeenThisRun) maxSeenThisRun = mod;
+                    if (new Date(mod) > new Date(maxSeenThisRun)) maxSeenThisRun = mod;
                     await upsertMatch(m);
                     total++;
                 }

@@ -5,7 +5,7 @@ export const matchesRepo = {
         const { rows } = await pool.query(
             `SELECT * FROM v_matches_pickems
              WHERE league_id = ANY($1) AND status IN ('not_started','pending')
-             ORDER BY modified_at
+             ORDER BY modified_at DESC
              LIMIT $2`, [leagueIds, limit]
         );
         return rows;
