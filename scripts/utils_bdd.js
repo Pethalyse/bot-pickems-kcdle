@@ -87,13 +87,13 @@ export async function upsertMatch(match)
     }
 }
 
-export async function getCursor() {
-    const { rows } = await pool.query(`SELECT value FROM ingest_state WHERE key='ps_modified_from'`);
+export async function getCursor(key) {
+    const { rows } = await pool.query(`SELECT value FROM ingest_state WHERE key=$1`, [key]);
     return rows[0]?.value;
 }
-export async function setCursor(iso) {
-    await pool.query(`INSERT INTO ingest_state (key, value) VALUES ('ps_modified_from',$1)
-                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`, [iso]);
+export async function setCursor(iso, $key) {
+    await pool.query(`INSERT INTO ingest_state (key, value) VALUES ($2,$1)
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`, [iso, $key]);
 }
 
 export async function matchIdToBind() {

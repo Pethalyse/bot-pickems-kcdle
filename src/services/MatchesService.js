@@ -13,4 +13,8 @@ export class MatchesService {
             .map(m => ({ ...m, match_date: new Date(m.match_date ?? m.date ?? m.start ?? Date.now()) }))
             .sort((a, b) => a.match_date - b.match_date);
     }
+
+    async upcomingByLeagues(leagues){
+        return await matchesRepo.upcomingByLeagues(leagues);
+    }
 }

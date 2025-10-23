@@ -1,4 +1,10 @@
-import {getGuildSettings, setGuildLeagues, setGuildTimezone, setGuildVoteChannel} from "../db/guildSettingsRepo.js";
+import {
+    getAllGuildSettingsWithChannel,
+    getGuildSettings,
+    setGuildLeagues,
+    setGuildTimezone,
+    setGuildVoteChannel,
+} from "../db/guildSettingsRepo.js";
 
 export class GuildSettingsService {
     async get(guildId) {
@@ -9,4 +15,8 @@ export class GuildSettingsService {
     async setTimezone(guildId, tz) { await setGuildTimezone(guildId, tz); }
     async setVoteChannel(guildId, channelId) { await setGuildVoteChannel(guildId, channelId); }
     async setGuildLeagues(guildId, leagueId) { await setGuildLeagues(guildId, leagueId); }
+
+    async getAllGuildSettingsWithChannel(){
+        return await getAllGuildSettingsWithChannel();
+    }
 }

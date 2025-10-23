@@ -27,14 +27,11 @@ export class VotesRouter extends Router {
     async handleSlash(interaction) {
         await ensureEphemeral(interaction);
 
-        const guildId = interaction.guildId;
-        if (!guildId) return interaction.editReply({ content: '❌ Cette commande doit être utilisée dans un serveur.' });
-
         const within = interaction.options.getInteger('within_hours') ?? 24;
         const selectedChannel = interaction.options.getChannel('channel');
 
 
-        const gs = await this.guildSettingsService.get(guildId);
+        const gs = await this.guildSettingsService.get(interaction.guildId);
         if (!gs?.leagues?.length) {
             return interaction.editReply({ content: '⚙️ Configure d’abord des ligues via `/setup`.' });
         }
@@ -45,7 +42,6 @@ export class VotesRouter extends Router {
 
 
         if (!channel) return interaction.editReply({ content: '❌ Salon introuvable.' });
-
 
         const permError = this.permissionGuard.firstError(channel, [
             'ViewChannel', 'SendMessages', 'EmbedLinks', 'UseExternalEmojis',

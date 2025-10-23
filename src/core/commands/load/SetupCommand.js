@@ -8,7 +8,7 @@ import {ChannelVoteUI} from "../../../ui/ChannelVoteUI.js";
 import {VoteUI} from "../../../ui/VoteUI.js";
 import {GuildSettingsService} from "../../../services/GuildSettingsService.js";
 import {LeagueService} from "../../../services/LeagueService.js";
-import DailyVotes from "../../../scheduler/DailyVotes.js";
+import NewMatchVote from "../../../scheduler/NewMatchVote.js";
 import {MatchesService} from "../../../services/MatchesService.js";
 
 export default class SetupCommand extends Command {
@@ -24,7 +24,7 @@ export default class SetupCommand extends Command {
             new GuildSettingsService(),
             new LeagueService(),
             deps?.cache,
-            new DailyVotes(
+            new NewMatchVote(
                 new MatchesService(),
                 voteUI,
                 deps.client.guilds,

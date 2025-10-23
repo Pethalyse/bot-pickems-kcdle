@@ -5,7 +5,7 @@ import { publishGlobalCommands } from './infra/discord/registry.js';
 import { createCacheFromEnv } from './core/cache/cacheFactory.js';
 import {MatchesService} from "./services/MatchesService.js";
 import {VoteUI} from "./ui/VoteUI.js";
-import DailyVotes from "./scheduler/DailyVotes.js";
+import NewMatchVote from "./scheduler/NewMatchVote.js";
 
 const logger = console;
 const cache = await createCacheFromEnv();
@@ -21,8 +21,8 @@ await publishGlobalCommands({
     bot
 });
 
-await new DailyVotes(new MatchesService(), new VoteUI("vote"), bot.client.guilds, logger)
-    .scheduleDailyVotes();
+await new NewMatchVote(new MatchesService(), new VoteUI("votes"), bot.client.guilds, logger)
+    .scheduleNewMatch();
 
 
 async function shutdown(sig) {

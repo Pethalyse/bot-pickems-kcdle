@@ -7,9 +7,6 @@ import {VoteUI} from "../../../ui/VoteUI.js";
 import {PermissionGuard} from "../../../utils/PermissionGuard.js";
 import {PredictionService} from "../../../services/PredictionService.js";
 
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 export default class VotesCommand extends Command {
     constructor(deps) {
         super();
@@ -37,7 +34,7 @@ export default class VotesCommand extends Command {
                 .setName('channel')
                 .setDescription("Salon cible (sinon, salon configuré ou salon courant)")
                 .addChannelTypes(ChannelType.GuildText))
-            .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
+            .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages);
     }
     get name() { return "votes"; }
 }

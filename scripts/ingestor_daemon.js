@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import cron from 'node-cron';
-import { spawn } from 'node:child_process';
 import {syncAllLeagues} from "./ingest_leagues.js";
 import {fetchUpcoming} from "./ingest_upcoming.js";
 import {fetchModifiedSince} from "./ingest_modified.js";

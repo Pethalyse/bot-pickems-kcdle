@@ -12,7 +12,7 @@ export default class SetupRouter extends Router {
      * @param {GuildSettingsService} guildSettingsService
      * @param {LeagueService} leagueService
      * @param {ICache} cache
-     * @param {DailyVotes} dailyVotes
+     * @param {NewMatchVote} dailyVotes
      */
     constructor(setupUI, leaguesUI, horaireUI, channelVoteUI, voteUI, guildSettingsService, leagueService, cache, dailyVotes) {
         super(cache);
@@ -143,14 +143,14 @@ export default class SetupRouter extends Router {
     }
 
     async #postToday(interaction) {
-        const res = this.dailyVotes.postTodayVotesForGuild(interaction.guildId);
+        const res = this.dailyVotes.postNewMatchForGuid(interaction.guildId);
         await interaction.reply(
             this.UI.toast(interaction,
                 res ? '✅ Votes du jour postés.' : `❌ Échec du poste.`));
     }
 
     async #scheduleDaily(interaction) {
-        const res = this.dailyVotes.scheduleDailyVotesForGuild(interaction.guildId);
+        const res = this.dailyVotes.scheduleNewMatchForGuild(interaction.guildId);
         await interaction.reply(
             this.UI.toast(interaction,
                 res ? '✅ Programmation quotidienne activée.' : `❌ Échec de la programmation.`));

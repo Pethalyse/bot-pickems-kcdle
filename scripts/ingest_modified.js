@@ -3,7 +3,7 @@ import {getCursor, setCursor, upsertMatch} from "./utils_bdd.js";
 import psGet from "./client.js";
 
 export async function fetchModifiedSince(perPage = 100, maxPages = 50) {
-    const lastSeen = (await getCursor()) || new Date(Date.now() - 7*24*3600e3).toISOString();
+    const lastSeen = (await getCursor("ps_modified_from")) || new Date(Date.now() - 7*24*3600e3).toISOString();
 
     let page = 1;
     let total = 0;
@@ -40,7 +40,7 @@ export async function fetchModifiedSince(perPage = 100, maxPages = 50) {
         }
 
         if (maxSeenThisRun > lastSeen) {
-            await setCursor(maxSeenThisRun);
+            await setCursor(maxSeenThisRun, "ps_modified_from");
         }
 
         console.log(`[modified] ✅ Ingest OK: upserted ${total} matches, lastSeen : ${lastSeen} -> new : ${maxSeenThisRun}`);
