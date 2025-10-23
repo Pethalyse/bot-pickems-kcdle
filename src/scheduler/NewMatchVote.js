@@ -28,7 +28,7 @@ export default class NewMatchVote {
     scheduleNewMatchForGuild(gs){
         this.cancelNewMatchForGuid(gs.guild_id);
 
-        const expr = `*/1 * * * *`;
+        const expr = `*/5 * * * *`;
         const job = cron.schedule(expr, async () => {
             try { await this.postNewMatchForGuid(gs); }
             catch (e) { this.logger.error('newMatch cron error:', e); return false;}
