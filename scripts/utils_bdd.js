@@ -91,9 +91,9 @@ export async function getCursor(key) {
     const { rows } = await pool.query(`SELECT value FROM ingest_state WHERE key=$1`, [key]);
     return rows[0]?.value;
 }
-export async function setCursor(iso, $key) {
+export async function setCursor(iso, key) {
     await pool.query(`INSERT INTO ingest_state (key, value) VALUES ($2,$1)
-                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`, [iso, $key]);
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`, [iso, key]);
 }
 
 export async function matchIdToBind() {
