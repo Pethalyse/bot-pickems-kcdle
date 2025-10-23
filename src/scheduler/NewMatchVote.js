@@ -1,7 +1,13 @@
 import cron from 'node-cron';
 import { DateTime } from 'luxon';
 import { getAllGuildSettingsWithChannel } from '../db/guildSettingsRepo.js';
-import {getCursor, setCursor, upsertMatch} from "../../scripts/utils_bdd.js";
+import {
+    getCursor,
+    getCursorNewModified,
+    setCursor,
+    setCursorNewModified,
+    upsertMatch
+} from "../../scripts/utils_bdd.js";
 
 export default class NewMatchVote {
     /**
@@ -56,12 +62,12 @@ export default class NewMatchVote {
         const matches = leagues.length ? await this.matchesService.upcomingByLeagues(leagues) : [];
         if (!matches.length) return;
 
-        const lastSeen = (await getCursor("ps_incoming_modified")) || new Date(Date.now() - 7*24*3600e3).toISOString();
+        const lastSeen = (await getCursorNewModified(gs.guild_id)) || new Date(Date.now() - 7*24*3600e3).toISOString();
         let maxSeenThisRun = lastSeen;
 
         for (const m of matches) {
 
-            if(m.modified_at <= lastSeen) continue;
+            if(new Date(m.modified_at) <= new Date(lastSeen)) continue;
             if(!gs.leagues.includes(m.league_id)) continue;
             if(m.status !== "not_started") continue;
 
@@ -71,7 +77,7 @@ export default class NewMatchVote {
             await this.#sleep(350);
         }
 
-        await setCursor(maxSeenThisRun, "ps_incoming_modified")
+        await setCursorNewModified(maxSeenThisRun, gs.guild_id);
 
         return true;
     }

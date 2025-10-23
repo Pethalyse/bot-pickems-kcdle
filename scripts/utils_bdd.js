@@ -96,6 +96,15 @@ export async function setCursor(iso, key) {
                     ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`, [iso, key]);
 }
 
+export async function getCursorNewModified(guildId) {
+    const { rows } = await pool.query(`SELECT value FROM ingest_new_modified_state WHERE guild_id=$1`, [guildId]);
+    return rows[0]?.value;
+}
+export async function setCursorNewModified(iso, guildId) {
+    await pool.query(`INSERT INTO ingest_new_modified_state (guild_id, value) VALUES ($2,$1)
+                    ON CONFLICT (guild_id) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`, [iso, guildId]);
+}
+
 export async function matchIdToBind() {
     return pool.query(`
         SELECT id FROM matches
